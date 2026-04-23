@@ -1,0 +1,31 @@
+{
+  "name": "decision-copilot",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "server:dev": "nodemon server/index.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.15.1",
+    "cors": "^2.8.6",
+    "d3": "^7.9.0",
+    "dotenv": "^17.4.2",
+    "echarts": "^6.0.0",
+    "element-plus": "^2.13.7",
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2",
+    "vue": "^3.5.32",
+    "vue-echarts": "^8.0.1",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "nodemon": "^3.1.14",
+    "vite": "^8.0.9"
+  }
+}

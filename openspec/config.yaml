@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  项目：AI 决策辅助器（Decision Copilot）
+  产品：基于 LLM 的复杂人生决策模拟系统，支持多路径推演、量化评估、可解释分析
+
+  技术栈：
+    - 前端：Vue 3 + Vite + ECharts
+    - 后端：Node.js + Express
+    - LLM：通义千问（Qwen API）
+    - 通信：REST API + 本地 Mock 数据（分阶段联调）
+
+  架构：
+    - 前端三栏布局（输入区 → 结果区），结果区内含底部参数面板
+    - 元数据驱动参数面板（LLM 返回变量/权重结构，前端动态渲染控件）
+    - ECharts 决策树可视化，支持点击节点联动路径详情 + 路径高亮 + 缩放拖拽
+    - 决策树升级：带时间维度的路径推演（year/eventType/probability 字段）
+    - 计算分工：LLM 负责首次建模/定性分析，前端负责调参后本地重算概率和分数/秒级更新
+    - 反事实对比：预定义场景按钮，自动调参展示 diff
+
+  开发约定：
+    - Vue 3 使用 <script setup> + Composables 管理状态（不引入 Pinia）
+    - 前端开发阶段使用 mock JSON 对齐真实接口结构
+    - Vite proxy 转发 /api/* 到 Express 后端
+
+# 每个工件的规则
+rules:
+  proposal:
+    - 保持提案在 500 字以内
+    - 始终包含"非目标"部分
+  tasks:
+    - 将任务按阶段拆分：Mock 开发 → 推演升级 → 后端联调 → 全链路
+    - 每个任务不超过 2 小时工作量

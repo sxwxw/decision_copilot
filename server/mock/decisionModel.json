@@ -1,0 +1,441 @@
+{
+  "options": [
+    "烤鸭",
+    "生菜",
+    "白切鸡"
+  ],
+  "variables": [
+    {
+      "name": "口味满足",
+      "type": "slider",
+      "range": [0, 100]
+    },
+    {
+      "name": "健康程度",
+      "type": "slider",
+      "range": [0, 100]
+    },
+    {
+      "name": "饱腹体验",
+      "type": "slider",
+      "range": [0, 100]
+    },
+    {
+      "name": "肠胃负担",
+      "type": "slider",
+      "range": [0, 100]
+    },
+    {
+      "name": "风险偏好",
+      "type": "select",
+      "options": ["保守", "均衡", "激进"]
+    }
+  ],
+  "weights": {
+    "口味满足": 0.3,
+    "健康程度": 0.25,
+    "饱腹体验": 0.25,
+    "肠胃负担": 0.2
+  },
+  "treeData": {
+    "name": "今日菜单",
+    "year": 0,
+    "value": 100,
+    "children": [
+      {
+        "name": "烤鸭",
+        "year": 0,
+        "value": 85,
+        "logic_payload": {
+          "key_impact": "味觉享受",
+          "risk_level": "高",
+          "primary_reason": "极致的口感体验，满足味蕾高峰",
+          "trade_offs": [
+            { "dimension": "健康程度", "delta": -10 },
+            { "dimension": "肠胃负担", "delta": 20 },
+            { "dimension": "口味满足", "delta": 15 }
+          ],
+          "opportunity_cost": "放弃低脂高蛋白的健康饮食选择"
+        },
+        "children": [
+          {
+            "name": "第1年：皮脆肉嫩",
+            "year": 1,
+            "eventType": "positive",
+            "value": 90,
+            "logic_payload": {
+              "key_impact": "感官体验",
+              "risk_level": "中",
+              "primary_reason": "油脂激发强烈多巴胺反馈",
+              "trade_offs": [
+                { "dimension": "饱腹体验", "delta": 10 },
+                { "dimension": "肠胃负担", "delta": 15 }
+              ],
+              "opportunity_cost": "牺牲后续消化舒适度"
+            },
+            "children": [
+              {
+                "name": "第2年：油脂偏高",
+                "year": 2,
+                "eventType": "negative",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "name": "第1年：搭配面饼",
+            "year": 1,
+            "eventType": "positive",
+            "value": 85,
+            "logic_payload": {
+              "key_impact": "饱腹提升",
+              "risk_level": "高",
+              "primary_reason": "碳水与脂肪叠加，快速拉升饱腹感",
+              "trade_offs": [
+                { "dimension": "健康程度", "delta": -10 },
+                { "dimension": "饱腹体验", "delta": 15 },
+                { "dimension": "口味满足", "delta": 10 }
+              ],
+              "opportunity_cost": "增加热量负担，影响体重管理"
+            },
+            "children": [
+              {
+                "name": "第2年：热量超标",
+                "year": 2,
+                "eventType": "negative",
+                "value": 65
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "生菜",
+        "year": 0,
+        "value": 75,
+        "logic_payload": {
+          "key_impact": "健康管理",
+          "risk_level": "低",
+          "primary_reason": "低卡清爽，极度友好消化系统",
+          "trade_offs": [
+            { "dimension": "健康程度", "delta": 10 },
+            { "dimension": "口味满足", "delta": -10 },
+            { "dimension": "肠胃负担", "delta": -10 }
+          ],
+          "opportunity_cost": "放弃即时味觉刺激和饱腹满足感"
+        },
+        "children": [
+          {
+            "name": "第1年：清爽解腻",
+            "year": 1,
+            "eventType": "positive",
+            "value": 80,
+            "logic_payload": {
+              "key_impact": "肠胃减负",
+              "risk_level": "低",
+              "primary_reason": "高水分高纤维，迅速缓解消化压力",
+              "trade_offs": [
+                { "dimension": "肠胃负担", "delta": -10 },
+                { "dimension": "饱腹体验", "delta": 5 }
+              ],
+              "opportunity_cost": "缺乏风味层次，进食愉悦度偏低"
+            },
+            "children": [
+              {
+                "name": "第2年：饱腹不足",
+                "year": 2,
+                "eventType": "negative",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "name": "第1年：纤维丰富",
+            "year": 1,
+            "eventType": "positive",
+            "value": 85,
+            "logic_payload": {
+              "key_impact": "肠道健康",
+              "risk_level": "低",
+              "primary_reason": "植物纤维促进肠道蠕动，维持消化健康",
+              "trade_offs": [
+                { "dimension": "健康程度", "delta": 12 },
+                { "dimension": "口味满足", "delta": -5 }
+              ],
+              "opportunity_cost": "长期食用可能导致味觉钝化"
+            },
+            "children": [
+              {
+                "name": "第2年：口感单一",
+                "year": 2,
+                "eventType": "neutral",
+                "value": 70
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "白切鸡",
+        "year": 0,
+        "value": 80,
+        "logic_payload": {
+          "key_impact": "健康收益",
+          "risk_level": "低",
+          "primary_reason": "优质低脂蛋白，兼顾口感与健康",
+          "trade_offs": [
+            { "dimension": "健康程度", "delta": 10 },
+            { "dimension": "肠胃负担", "delta": -5 },
+            { "dimension": "口味满足", "delta": 5 }
+          ],
+          "opportunity_cost": "放弃烤鸭的极致味觉冲击"
+        },
+        "children": [
+          {
+            "name": "第1年：原汁原味",
+            "year": 1,
+            "eventType": "positive",
+            "value": 85,
+            "logic_payload": {
+              "key_impact": "味觉纯净",
+              "risk_level": "低",
+              "primary_reason": "无添加烹饪保留食材本味",
+              "trade_offs": [
+                { "dimension": "口味满足", "delta": 10 },
+                { "dimension": "健康程度", "delta": 10 }
+              ],
+              "opportunity_cost": "风味层次不如重口味菜品丰富"
+            },
+            "children": [
+              {
+                "name": "第2年：清淡耐吃",
+                "year": 2,
+                "eventType": "positive",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "name": "第1年：蘸料提鲜",
+            "year": 1,
+            "eventType": "neutral",
+            "value": 75,
+            "logic_payload": {
+              "key_impact": "风味升级",
+              "risk_level": "低",
+              "primary_reason": "姜葱蘸料提升味觉层次，兼顾健康",
+              "trade_offs": [
+                { "dimension": "口味满足", "delta": 12 },
+                { "dimension": "饱腹体验", "delta": 5 }
+              ],
+              "opportunity_cost": "蘸料钠摄入略增，需控制用量"
+            },
+            "children": [
+              {
+                "name": "第2年：营养均衡",
+                "year": 2,
+                "eventType": "positive",
+                "value": 85
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "paths": [
+    {
+      "id": "path-1",
+      "name": "烤鸭 → 皮脆肉嫩 → 油脂偏高",
+      "probability": 0.6,
+      "income": 85,
+      "growth": 60,
+      "risk": 75,
+      "happiness": 90,
+      "explanation": "烤鸭口感极佳，但高油脂可能带来消化负担，适合偶尔解馋。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "皮脆肉嫩",
+          "probability": 0.9,
+          "description": "入口酥脆，鸭肉鲜嫩多汁，带来强烈的味觉满足。",
+          "impact": { "口味满足": 15, "饱腹体验": 10 },
+          "threshold": { "肠胃负担": 70 }
+        },
+        {
+          "year": 2,
+          "event": "油脂偏高",
+          "probability": 0.7,
+          "description": "后续消化过程中油脂代谢较慢，可能产生轻微腻感。",
+          "impact": { "健康程度": -5, "肠胃负担": 20 },
+          "threshold": { "风险偏好": 50 }
+        }
+      ]
+    },
+    {
+      "id": "path-2",
+      "name": "烤鸭 → 搭配面饼 → 热量超标",
+      "probability": 0.4,
+      "income": 80,
+      "growth": 55,
+      "risk": 80,
+      "happiness": 85,
+      "explanation": "面饼增加碳水摄入，整体热量偏高，需注意控制食量。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "搭配面饼",
+          "probability": 0.8,
+          "description": "面饼包裹鸭肉，口感层次丰富，饱腹感迅速提升。",
+          "impact": { "饱腹体验": 15, "口味满足": 10 },
+          "threshold": { "健康程度": 60 }
+        },
+        {
+          "year": 2,
+          "event": "热量超标",
+          "probability": 0.6,
+          "description": "高碳水与高脂肪叠加，长期可能影响体重管理。",
+          "impact": { "健康程度": -10, "肠胃负担": 15 },
+          "threshold": { "风险偏好": 60 }
+        }
+      ]
+    },
+    {
+      "id": "path-3",
+      "name": "生菜 → 清爽解腻 → 饱腹不足",
+      "probability": 0.5,
+      "income": 70,
+      "growth": 80,
+      "risk": 30,
+      "happiness": 65,
+      "explanation": "生菜低卡清爽，适合减脂期，但单吃容易饿。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "清爽解腻",
+          "probability": 0.8,
+          "description": "清脆口感迅速唤醒味蕾，减轻肠胃压力。",
+          "impact": { "健康程度": 10, "肠胃负担": -10 },
+          "threshold": { "口味满足": 50 }
+        },
+        {
+          "year": 2,
+          "event": "饱腹不足",
+          "probability": 0.7,
+          "description": "膳食纤维消化快，餐后不久可能产生饥饿感。",
+          "impact": { "饱腹体验": -15, "健康程度": 5 },
+          "threshold": { "风险偏好": 40 }
+        }
+      ]
+    },
+    {
+      "id": "path-4",
+      "name": "生菜 → 纤维丰富 → 口感单一",
+      "probability": 0.5,
+      "income": 75,
+      "growth": 85,
+      "risk": 25,
+      "happiness": 60,
+      "explanation": "高纤维促进肠道蠕动，但缺乏调味易显单调。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "纤维丰富",
+          "probability": 0.9,
+          "description": "植物纤维充足，有助于维持消化系统健康。",
+          "impact": { "健康程度": 12, "饱腹体验": 5 },
+          "threshold": { "肠胃负担": 30 }
+        },
+        {
+          "year": 2,
+          "event": "口感单一",
+          "probability": 0.6,
+          "description": "持续食用可能缺乏风味刺激，降低进食愉悦度。",
+          "impact": { "口味满足": -10, "健康程度": -5 },
+          "threshold": { "风险偏好": 50 }
+        }
+      ]
+    },
+    {
+      "id": "path-5",
+      "name": "白切鸡 → 原汁原味 → 清淡耐吃",
+      "probability": 0.6,
+      "income": 80,
+      "growth": 85,
+      "risk": 35,
+      "happiness": 85,
+      "explanation": "保留鸡肉本味，蛋白质优质，适合长期健康饮食。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "原汁原味",
+          "probability": 0.85,
+          "description": "鸡肉鲜嫩滑爽，无多余添加剂，口感纯净。",
+          "impact": { "口味满足": 10, "健康程度": 10 },
+          "threshold": { "肠胃负担": 40 }
+        },
+        {
+          "year": 2,
+          "event": "清淡耐吃",
+          "probability": 0.75,
+          "description": "低脂高蛋白特性使其不易产生味觉疲劳。",
+          "impact": { "饱腹体验": 8, "健康程度": 12 },
+          "threshold": { "风险偏好": 50 }
+        }
+      ]
+    },
+    {
+      "id": "path-6",
+      "name": "白切鸡 → 蘸料提鲜 → 营养均衡",
+      "probability": 0.4,
+      "income": 85,
+      "growth": 80,
+      "risk": 40,
+      "happiness": 80,
+      "explanation": "搭配姜葱蘸料提升风味，整体营养结构合理。",
+      "timeline": [
+        {
+          "year": 1,
+          "event": "蘸料提鲜",
+          "probability": 0.8,
+          "description": "姜葱蒜蓉激发鸡肉香气，味觉层次更丰富。",
+          "impact": { "口味满足": 12, "饱腹体验": 5 },
+          "threshold": { "肠胃负担": 50 }
+        },
+        {
+          "year": 2,
+          "event": "营养均衡",
+          "probability": 0.7,
+          "description": "荤素搭配合理，微量元素补充到位，利于身体恢复。",
+          "impact": { "健康程度": 15, "饱腹体验": 10 },
+          "threshold": { "风险偏好": 55 }
+        }
+      ]
+    }
+  ],
+  "recommendation": {
+    "rank": [
+      {
+        "option": "白切鸡",
+        "score": 88,
+        "summary": "兼顾口感与健康，低脂高蛋白且不易产生消化负担，综合性价比最高。"
+      },
+      {
+        "option": "烤鸭",
+        "score": 78,
+        "summary": "味觉享受极佳，但油脂与热量偏高，建议控制频次或搭配清茶解腻。"
+      },
+      {
+        "option": "生菜",
+        "score": 68,
+        "summary": "极度健康低卡，但饱腹感与风味较弱，适合作为配菜而非主餐。"
+      }
+    ],
+    "analysis": "本次决策围绕饮食偏好展开。白切鸡在口味满足、健康程度与饱腹体验之间取得了最佳平衡，长期食用风险最低；烤鸭虽能带来即时的高幸福感，但需承担较高的肠胃负担与热量风险；生菜则偏向功能性饮食，适合作为健康管理的辅助选择。建议根据当日体能消耗与口味渴望程度进行选择。"
+  },
+  "scores": {
+    "烤鸭": 78,
+    "生菜": 68,
+    "白切鸡": 88
+  }
+}

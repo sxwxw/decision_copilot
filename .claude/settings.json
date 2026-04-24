@@ -51,7 +51,9 @@
       "Bash(git rm *)",
       "mcp__chrome-devtools__fill",
       "mcp__chrome-devtools__get_console_message",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(cd e:\\\\\\\\codeLife\\\\\\\\decision_copilot)",
+      "mcp__chrome-devtools__list_network_requests"
     ],
     "deny": [
       "Bash(git push *)",

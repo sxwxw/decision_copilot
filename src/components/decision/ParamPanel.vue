@@ -37,7 +37,7 @@ function onUpdate(name, value) {
       <p>提交决策问题后，参数面板将自动生成</p>
     </div>
     <el-button v-if="model" type="primary" plain class="btn-recalc" @click="emit('recalc')">
-      重新模拟
+      深度模拟
     </el-button>
   </div>
 </template>

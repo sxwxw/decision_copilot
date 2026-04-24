@@ -19,30 +19,25 @@ function adaptTree(rawTree, rawPaths) {
       let cumulative = new Decimal(1)
       for (const evt of path.timeline) {
         cumulative = cumulative.mul(evt.probability ?? 1.0)
-        const key = `step-${evt.year}:${evt.event}`
-        // 取最大值（同一 event 可能出现在多条 path 中）
-        const cVal = cumulative.toDecimalPlaces(2).toNumber()
-        if (!eventProbMap[key] || eventProbMap[key] < cVal) {
-          eventProbMap[key] = cVal
+        // 用事件名做 key，不再依赖 year
+        if (evt.event) {
+          const cVal = cumulative.toDecimalPlaces(2).toNumber()
+          if (!eventProbMap[evt.event] || eventProbMap[evt.event] < cVal) {
+            eventProbMap[evt.event] = cVal
+          }
         }
       }
     }
   }
 
-  // 2) 递归遍历树，标准化字段并注入 probability
+  // 2) 递归遍历树，标准化字段并注入 probability + pathIds
   function adaptNode(node, depth, optionName) {
     const step = depth
     const rawName = node.name ?? ''
-    // 去除 "第N年：" 或 "第N年:" 前缀
     const cleanName = rawName.replace(/^第[0-9]+年[：:]\s*/, '')
 
-    // 从 eventProbMap 查找概率
-    let probability = undefined
-    if (step > 0) {
-      const key = `step-${step}:${cleanName}`
-      probability = eventProbMap[key]
-    }
-    // 根节点（step===0）或查不到时 fallback 到 value/50
+    // 从 eventProbMap 按节点名查找概率
+    let probability = eventProbMap[cleanName]
     if (probability === undefined) {
       probability = (node.value ?? 50) / 100
     }
@@ -57,9 +52,9 @@ function adaptTree(rawTree, rawPaths) {
       probability,
       isDashed: step >= 2,
       children: [],
+      pathIds: [],
     }
 
-    // 透传 logic_payload（中间节点的决策元数据）
     if (node.logic_payload) {
       adapted.logic_payload = node.logic_payload
     }
@@ -73,11 +68,47 @@ function adaptTree(rawTree, rawPaths) {
     return adapted
   }
 
-  return adaptNode(rawTree, 0, null)
+  const adapted = adaptNode(rawTree, 0, null)
+
+  // 3) 为每个节点注入经过它的 pathIds
+  // 根节点始终包含所有 pathId
+  if (rawPaths && rawPaths.length) {
+    adapted.pathIds = rawPaths.map(p => p.id)
+
+    // 对每个 path，按 timeline 事件名顺序在树中递归匹配，注入 pathId
+    for (const path of rawPaths) {
+      if (!path.timeline || !path.timeline.length) continue
+
+      const events = path.timeline.map(evt =>
+        evt.event?.replace(/^第[0-9]+年[：:]\s*/, '') || evt.event)
+
+      function matchPath(treeNode, eventIndex) {
+        if (eventIndex >= events.length) return
+        const target = events[eventIndex]
+        if (treeNode.name === target) {
+          treeNode.pathIds.push(path.id)
+          for (const child of (treeNode.children || [])) {
+            matchPath(child, eventIndex + 1)
+          }
+        } else {
+          for (const child of (treeNode.children || [])) {
+            matchPath(child, eventIndex)
+          }
+        }
+      }
+
+      for (const child of (adapted.children || [])) {
+        matchPath(child, 0)
+      }
+    }
+  }
+
+  return adapted
 }
 
 const state = reactive({
   userInput: '',
+  savedInput: '',   // last submitted question, used by deep simulate
   loading: false,
   model: null,       // { options, variables, weights, treeData, paths, recommendation, scores }
   selectedNode: null,
@@ -166,7 +197,7 @@ export function useDecisionModel() {
 
       let shift = new Decimal(0)
       for (const [paramName, paramValue] of Object.entries(state.paramValues)) {
-        if (state.model.weights[paramName] !== undefined) {
+        if (state.model.weights[paramName] !== undefined && typeof paramValue === 'number') {
           const delta = dims[paramName] ?? 0
           // 公式：(paramValue/100 - 0.5) × delta × 2
           const pv = new Decimal(paramValue).div(100)
@@ -186,70 +217,59 @@ export function useDecisionModel() {
   const counterfactualActive = ref(false)
   const activeCounterfactual = ref(null)
 
-  // Recalculate path probabilities based on current param values
+  // Recalculate path probabilities based on current param values.
+  // Base computation mirrors adaptTree: cumulative product of event probabilities.
+  // Then apply a param-alignment scaling: for each event, compare user param values
+  // to the event's impact values. Closer alignment → higher probability.
   function recalcProbabilities() {
     if (!state.model || !state.model.paths) return
     const paths = state.model.paths
 
-    // Group paths by option
-    const optionGroups = {}
-    for (const option of state.model.options) {
-      const matching = paths.filter(p => p.name.startsWith(option))
-      if (matching.length) {
-        optionGroups[option] = matching
+    for (const path of paths) {
+      // Step 1: Compute base cumulative probability (same as adaptTree)
+      let cumulative = new Decimal(1)
+      if (path.timeline) {
+        for (const evt of path.timeline) {
+          cumulative = cumulative.mul(evt.probability ?? 1.0)
+        }
       }
-    }
 
-    const adjusted = {}
+      // Step 2: Apply param-alignment scaling
+      // Only if user has deviated from defaults (all params at 50 = no change)
+      let hasDeviation = false
+      if (state.paramValues) {
+        for (const v of Object.values(state.paramValues)) {
+          if (typeof v === 'number' && v !== 50) { hasDeviation = true; break }
+        }
+      }
 
-    for (const [option, groupPaths] of Object.entries(optionGroups)) {
-      const rawProbs = []
-      for (const path of groupPaths) {
-        let baseProb = path.probability
-
-        // Apply param influence: if user's param values are high/low,
-        // scale probabilities based on weighted impact
-        if (state.paramValues && Object.keys(state.paramValues).length > 0) {
-          // Check timeline events with thresholds (if any)
-          if (path.timeline) {
-            for (const evt of path.timeline) {
-              if (evt.threshold) {
-                for (const [key, threshVal] of Object.entries(evt.threshold)) {
-                  const userVal = state.paramValues[key]
-                  if (userVal !== undefined) {
-                    if (key === '风险偏好') {
-                      const prefOrder = { '保守': 0, '均衡': 1, '激进': 2 }
-                      const userPref = prefOrder[userVal] ?? 1
-                      const needPref = prefOrder[threshVal] ?? 1
-                      baseProb = new Decimal(baseProb)
-                        .mul(userPref >= needPref ? '1.1' : '0.9')
-                        .toDecimalPlaces(2)
-                        .toNumber()
-                    } else {
-                      const factor = userVal >= threshVal ? '1.15' : '0.85'
-                      baseProb = new Decimal(baseProb).mul(factor).toDecimalPlaces(2).toNumber()
-                    }
-                  }
-                }
+      if (hasDeviation && path.timeline) {
+        for (const evt of path.timeline) {
+          if (evt.impact && state.paramValues) {
+            let alignment = new Decimal(0)
+            let count = 0
+            for (const [dim, impactVal] of Object.entries(evt.impact)) {
+              const userVal = state.paramValues[dim]
+              if (userVal !== undefined && typeof userVal === 'number') {
+                // alignment = 1 - |userVal - impactVal| / 100
+                // 1.0 = perfect match, 0.0 = completely opposite
+                alignment = alignment.add(1 - Math.abs(userVal - impactVal) / 100)
+                count++
               }
+            }
+            if (count > 0) {
+              const avgAlignment = alignment.div(count).toNumber()
+              // Map [0, 1] alignment to [0.7, 1.3] scale
+              const scale = 0.7 + avgAlignment * 0.6
+              cumulative = cumulative.mul(scale)
             }
           }
         }
-        rawProbs.push(Math.max(0.01, Math.min(0.99, baseProb)))
       }
 
-      // Normalize so group probabilities sum to original
-      const sum = rawProbs.reduce((a, b) => a + b, 0)
-      const originalSum = groupPaths.reduce((a, p) => a + p.probability, 0)
-      for (let i = 0; i < groupPaths.length; i++) {
-        const normalized = sum > 0
-          ? new Decimal(rawProbs[i]).div(sum).mul(originalSum).toDecimalPlaces(2).toNumber()
-          : 0
-        adjusted[groupPaths[i].id] = normalized
-      }
+      const newVal = Math.max(0.01, Math.min(0.99, cumulative.toDecimalPlaces(2).toNumber()))
+      state.adjustedProbabilities[path.id] = newVal
     }
-
-    state.adjustedProbabilities = adjusted
   }
 
   // Counterfactual scenarios
@@ -312,6 +332,8 @@ export function useDecisionModel() {
   async function buildModel() {
     if (!state.userInput.trim()) return
     state.loading = true
+    // 保存问题，供深度模拟使用
+    state.savedInput = state.userInput
     try {
       const result = await createDecisionModel(state.userInput)
       // LLM 有时返回数组，解包为单个对象
@@ -332,25 +354,46 @@ export function useDecisionModel() {
       for (const path of result.paths) {
         state.adjustedProbabilities[path.id] = path.probability
       }
+      // Init _version for reactivity
+      state.model.treeData._version = 0
+      // 默认选中根节点，展示概览视图
+      state.selectedNode = null
+      selectNode(state.model.treeData)
     } finally {
       state.loading = false
     }
   }
 
+  // Throttle: batch rapid _version increments to at most once per animation frame
+  let _rafPending = false
+  let _versionBumpCount = 0
+
   function recalcScores() {
     state.paramValues = { ...state.paramValues }
     recalcProbabilities()
+
+    _versionBumpCount++
+    if (!_rafPending) {
+      _rafPending = true
+      requestAnimationFrame(() => {
+        _rafPending = false
+        if (state.model?.treeData) {
+          state.model.treeData._version = (state.model.treeData._version || 0) + _versionBumpCount
+          _versionBumpCount = 0
+        }
+      })
+    }
   }
 
   async function runSimulation() {
-    if (!state.userInput.trim()) return
+    if (!state.savedInput?.trim()) return
     state.loading = true
     try {
-      const result = await simulateModel(state.userInput, state.paramValues)
+      const result = await simulateModel(state.savedInput, state.paramValues)
       // 通过适配器标准化 treeData
       result.treeData = adaptTree(result.treeData, result.paths)
       state.model = result
-      // Reset param values to defaults from new model
+      // 重置参数为默认值，避免与上次模拟冲突
       state.paramValues = {}
       for (const v of result.variables) {
         if (v.type === 'select') {
@@ -364,6 +407,7 @@ export function useDecisionModel() {
         state.adjustedProbabilities[path.id] = path.probability
       }
       state.selectedNode = null
+      selectNode(state.model.treeData)
       counterfactualActive.value = false
       activeCounterfactual.value = null
     } finally {

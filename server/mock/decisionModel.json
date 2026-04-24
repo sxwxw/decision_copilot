@@ -1,12 +1,12 @@
 {
   "options": [
-    "留任深耕",
-    "自主创业",
-    "跨界转行"
+    "Vue 方案",
+    "React 方案",
+    "Angular 方案"
   ],
   "variables": [
     {
-      "name": "财务回报",
+      "name": "学习成本",
       "type": "slider",
       "range": [
         0,
@@ -14,7 +14,7 @@
       ]
     },
     {
-      "name": "成长潜力",
+      "name": "生态支持",
       "type": "slider",
       "range": [
         0,
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "name": "心理负荷",
+      "name": "集成难度",
       "type": "slider",
       "range": [
         0,
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "name": "时间自主",
+      "name": "团队适配",
       "type": "slider",
       "range": [
         0,
@@ -48,144 +48,73 @@
     }
   ],
   "weights": {
-    "财务回报": 0.35,
-    "成长潜力": 0.25,
-    "心理负荷": 0.20,
-    "时间自主": 0.20
+    "学习成本": 0.15,
+    "生态支持": 0.25,
+    "集成难度": 0.35,
+    "团队适配": 0.25
   },
   "treeData": {
-    "name": "职业路径推演",
+    "name": "技术栈选择",
     "step": 0,
     "value": 100,
+    "logic_payload": {
+      "key_impact": "架构长期稳定性",
+      "risk_level": "中",
+      "primary_reason": "微前端需平衡扩展性与维护性",
+      "trade_offs": [
+        {
+          "dimension": "学习成本",
+          "delta": -10
+        },
+        {
+          "dimension": "生态支持",
+          "delta": 5
+        }
+      ],
+      "opportunity_cost": "放弃其他框架的特定优势"
+    },
     "children": [
       {
-        "name": "留任深耕",
+        "name": "Vue 方案",
         "step": 0,
-        "value": 82,
+        "value": 85,
         "logic_payload": {
-          "key_impact": "财务回报",
+          "key_impact": "渐进式集成友好",
           "risk_level": "低",
-          "primary_reason": "依托现有平台积累，现金流稳定且晋升通道明确",
+          "primary_reason": "上手快且与 qkun 兼容性好",
           "trade_offs": [
             {
-              "dimension": "时间自主",
-              "delta": -15
+              "dimension": "学习成本",
+              "delta": 20
             },
             {
-              "dimension": "心理负荷",
-              "delta": 10
+              "dimension": "集成难度",
+              "delta": 15
             }
           ],
-          "opportunity_cost": "错失早期创业红利与行业爆发期的非线性收益"
+          "opportunity_cost": "大型应用状态管理复杂度增加"
         },
         "children": [
           {
-            "name": "竞聘总监",
+            "name": "快速落地",
             "step": 1,
             "eventType": "positive",
-            "value": 85,
+            "value": 90,
             "logic_payload": {
-              "key_impact": "成长潜力",
-              "risk_level": "中",
-              "primary_reason": "核心业务线扩编带来管理半径扩大与资源倾斜",
+              "key_impact": "开发效率提升",
+              "risk_level": "低",
+              "primary_reason": "组件库丰富减少重复造轮子",
               "trade_offs": [
                 {
-                  "dimension": "财务回报",
-                  "delta": 25
-                },
-                {
-                  "dimension": "心理负荷",
-                  "delta": 20
-                }
-              ],
-              "opportunity_cost": "需放弃短期舒适区与扁平化协作的灵活度"
-            },
-            "children": [
-              {
-                "name": "薪资跃升",
-                "step": 2,
-                "eventType": "positive",
-                "value": 90
-              }
-            ]
-          },
-          {
-            "name": "遭遇瓶颈",
-            "step": 1,
-            "eventType": "negative",
-            "value": 65,
-            "logic_payload": {
-              "key_impact": "成长潜力",
-              "risk_level": "中",
-              "primary_reason": "组织架构固化导致晋升窗口期延长与职责重叠",
-              "trade_offs": [
-                {
-                  "dimension": "成长潜力",
-                  "delta": -30
-                },
-                {
-                  "dimension": "心理负荷",
-                  "delta": 15
-                }
-              ],
-              "opportunity_cost": "消耗最佳职业黄金期并错失外部转型时机"
-            },
-            "children": [
-              {
-                "name": "绩效垫底",
-                "step": 2,
-                "eventType": "negative",
-                "value": 40
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "name": "自主创业",
-        "step": 0,
-        "value": 68,
-        "logic_payload": {
-          "key_impact": "时间自主",
-          "risk_level": "高",
-          "primary_reason": "脱离组织约束，实现商业模式闭环与个人IP打造",
-          "trade_offs": [
-            {
-              "dimension": "时间自主",
-              "delta": 30
-            },
-            {
-              "dimension": "财务回报",
-              "delta": -40
-            }
-          ],
-          "opportunity_cost": "放弃稳定高薪及企业级背书与成熟资源网络"
-        },
-        "children": [
-          {
-            "name": "产品落地",
-            "step": 1,
-            "eventType": "neutral",
-            "value": 75,
-            "logic_payload": {
-              "key_impact": "成长潜力",
-              "risk_level": "高",
-              "primary_reason": "技术壁垒转化为市场验证，初步跑通最小可行模型",
-              "trade_offs": [
-                {
-                  "dimension": "财务回报",
+                  "dimension": "生态支持",
                   "delta": 10
-                },
-                {
-                  "dimension": "心理负荷",
-                  "delta": 25
                 }
               ],
-              "opportunity_cost": "需持续投入沉没成本且延迟短期现金流入"
+              "opportunity_cost": "后期重构灵活性受限"
             },
             "children": [
               {
-                "name": "市场爆红",
+                "name": "项目上线",
                 "step": 2,
                 "eventType": "positive",
                 "value": 95
@@ -193,115 +122,178 @@
             ]
           },
           {
-            "name": "融资受阻",
+            "name": "深度定制",
             "step": 1,
-            "eventType": "negative",
-            "value": 50,
+            "eventType": "neutral",
+            "value": 75,
             "logic_payload": {
-              "key_impact": "财务回报",
-              "risk_level": "高",
-              "primary_reason": "宏观资本收缩导致估值倒挂与现金流断裂风险",
+              "key_impact": "性能优化空间大",
+              "risk_level": "中",
+              "primary_reason": "原生 API 需自行封装适配层",
               "trade_offs": [
                 {
-                  "dimension": "财务回报",
-                  "delta": -35
-                },
-                {
-                  "dimension": "心理负荷",
-                  "delta": 40
+                  "dimension": "集成难度",
+                  "delta": -10
                 }
               ],
-              "opportunity_cost": "个人资产大幅缩水及再就业时的履历断档"
+              "opportunity_cost": "投入额外研发周期"
             },
             "children": [
               {
-                "name": "资金断裂",
+                "name": "性能达标",
                 "step": 2,
-                "eventType": "negative",
-                "value": 30
+                "eventType": "positive",
+                "value": 80
               }
             ]
           }
         ]
       },
       {
-        "name": "跨界转行",
+        "name": "React 方案",
         "step": 0,
-        "value": 76,
+        "value": 88,
         "logic_payload": {
-          "key_impact": "心理负荷",
+          "key_impact": "生态扩展性最强",
           "risk_level": "中",
-          "primary_reason": "切换高景气赛道实现能力平移，平衡工作与生活",
+          "primary_reason": "社区活跃度高工具链完善",
           "trade_offs": [
             {
-              "dimension": "时间自主",
-              "delta": 15
+              "dimension": "团队适配",
+              "delta": -5
             },
             {
-              "dimension": "财务回报",
-              "delta": -20
+              "dimension": "学习成本",
+              "delta": -15
             }
           ],
-          "opportunity_cost": "原有行业人脉折旧与短期职级下调带来的落差"
+          "opportunity_cost": "配置复杂导致初期启动慢"
         },
         "children": [
           {
-            "name": "技能重塑",
+            "name": "灵活扩展",
             "step": 1,
             "eventType": "positive",
-            "value": 80,
+            "value": 92,
             "logic_payload": {
-              "key_impact": "成长潜力",
+              "key_impact": "微模块隔离性好",
               "risk_level": "低",
-              "primary_reason": "新领域知识复用率高且行业规范完善培训体系",
+              "primary_reason": "Hooks 机制便于状态复用",
               "trade_offs": [
                 {
-                  "dimension": "成长潜力",
+                  "dimension": "生态支持",
                   "delta": 15
-                },
-                {
-                  "dimension": "时间自主",
-                  "delta": -10
                 }
               ],
-              "opportunity_cost": "学习曲线陡峭期需投入额外精力与考证成本"
+              "opportunity_cost": "依赖版本兼容性风险"
             },
             "children": [
               {
-                "name": "平稳过渡",
+                "name": "独立部署",
                 "step": 2,
                 "eventType": "positive",
-                "value": 82
+                "value": 90
               }
             ]
           },
           {
-            "name": "水土不服",
+            "name": "上手门槛",
             "step": 1,
             "eventType": "negative",
-            "value": 55,
+            "value": 60,
             "logic_payload": {
-              "key_impact": "心理负荷",
-              "risk_level": "中",
-              "primary_reason": "原有方法论失效导致团队磨合困难与文化冲突",
+              "key_impact": "技术选型成本高",
+              "risk_level": "高",
+              "primary_reason": "需掌握多种渲染模式",
               "trade_offs": [
                 {
-                  "dimension": "心理负荷",
-                  "delta": 30
-                },
-                {
-                  "dimension": "成长潜力",
+                  "dimension": "学习成本",
                   "delta": -20
                 }
               ],
-              "opportunity_cost": "跨行业试错成本高昂及职业信誉受损风险"
+              "opportunity_cost": "人员招聘培训周期延长"
             },
             "children": [
               {
-                "name": "阵痛调整",
+                "name": "维护困难",
                 "step": 2,
                 "eventType": "negative",
-                "value": 45
+                "value": 50
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Angular 方案",
+        "step": 0,
+        "value": 70,
+        "logic_payload": {
+          "key_impact": "企业级规范严格",
+          "risk_level": "中",
+          "primary_reason": "内置全套解决方案无需选包",
+          "trade_offs": [
+            {
+              "dimension": "团队适配",
+              "delta": -15
+            },
+            {
+              "dimension": "集成难度",
+              "delta": -5
+            }
+          ],
+          "opportunity_cost": "体积较大影响首屏加载"
+        },
+        "children": [
+          {
+            "name": "企业稳定",
+            "step": 1,
+            "eventType": "positive",
+            "value": 85,
+            "logic_payload": {
+              "key_impact": "代码规范性强",
+              "risk_level": "低",
+              "primary_reason": "TypeScript 强制类型约束",
+              "trade_offs": [
+                {
+                  "dimension": "生态支持",
+                  "delta": -5
+                }
+              ],
+              "opportunity_cost": "学习曲线陡峭"
+            },
+            "children": [
+              {
+                "name": "长期维护",
+                "step": 2,
+                "eventType": "positive",
+                "value": 88
+              }
+            ]
+          },
+          {
+            "name": "体积较大",
+            "step": 1,
+            "eventType": "negative",
+            "value": 40,
+            "logic_payload": {
+              "key_impact": "资源占用过高",
+              "risk_level": "高",
+              "primary_reason": "全量引入核心库难以按需加载",
+              "trade_offs": [
+                {
+                  "dimension": "集成难度",
+                  "delta": -10
+                }
+              ],
+              "opportunity_cost": "用户体验下降"
+            },
+            "children": [
+              {
+                "name": "加载缓慢",
+                "step": 2,
+                "eventType": "negative",
+                "value": 30
               }
             ]
           }
@@ -312,252 +304,120 @@
   "paths": [
     {
       "id": "path-1",
-      "name": "留任深耕 → 竞聘总监 → 薪资跃升",
-      "probability": 0.45,
-      "income": 88,
+      "name": "Vue 方案 → 快速落地 → 项目上线",
+      "probability": 0.8,
+      "income": 90,
       "growth": 85,
-      "risk": 30,
-      "happiness": 80,
-      "explanation": "依托成熟体系顺利晋升，实现财务与职阶双增长，但管理压力同步上升。",
+      "risk": 20,
+      "happiness": 88,
+      "explanation": "适合追求快速交付与轻量集成的场景",
       "timeline": [
         {
-          "year": 1,
-          "event": "竞聘总监",
-          "probability": 0.6,
-          "description": "完成核心指标考核，进入高管备选池",
+          "event": "快速落地",
+          "probability": 0.8,
+          "description": "利用 Vue 插件生态加速开发进程",
           "impact": {
-            "财务回报": 70,
-            "成长潜力": 75,
-            "心理负荷": 65,
-            "时间自主": 40
+            "学习成本": 20,
+            "生态支持": 10,
+            "集成难度": 15,
+            "团队适配": 10
           },
           "threshold": {
-            "心理负荷": 75
+            "集成难度": 80
           }
         },
         {
-          "year": 2,
-          "event": "薪资跃升",
-          "probability": 0.8,
-          "description": "正式任命并触发期权兑现机制",
+          "event": "项目上线",
+          "probability": 0.9,
+          "description": "最终交付满足业务需求",
           "impact": {
-            "财务回报": 90,
-            "成长潜力": 85,
-            "心理负荷": 70,
-            "时间自主": 45
+            "学习成本": 5,
+            "生态支持": 5,
+            "集成难度": 0,
+            "团队适配": 5
           },
           "threshold": {
-            "财务回报": 80
+            "团队适配": 75
           }
         }
       ]
     },
     {
       "id": "path-2",
-      "name": "留任深耕 → 遭遇瓶颈 → 绩效垫底",
-      "probability": 0.55,
-      "income": 60,
-      "growth": 50,
-      "risk": 45,
-      "happiness": 55,
-      "explanation": "组织内卷加剧导致资源倾斜不足，陷入边际效益递减的舒适区陷阱。",
+      "name": "React 方案 → 灵活扩展 → 独立部署",
+      "probability": 0.7,
+      "income": 85,
+      "growth": 90,
+      "risk": 30,
+      "happiness": 80,
+      "explanation": "适合需要高度定制化与大规模扩展的场景",
       "timeline": [
         {
-          "year": 1,
-          "event": "遭遇瓶颈",
-          "probability": 0.5,
-          "description": "业务线收缩引发内部岗位竞争白热化",
+          "event": "灵活扩展",
+          "probability": 0.7,
+          "description": "通过 Hooks 实现微前端模块解耦",
           "impact": {
-            "财务回报": 55,
-            "成长潜力": 45,
-            "心理负荷": 80,
-            "时间自主": 35
+            "学习成本": -15,
+            "生态支持": 15,
+            "集成难度": 5,
+            "团队适配": -5
           },
           "threshold": {
-            "成长潜力": 50
+            "生态支持": 85
           }
         },
         {
-          "year": 2,
-          "event": "绩效垫底",
-          "probability": 0.4,
-          "description": "连续两期考核未达标面临优化预警",
+          "event": "独立部署",
+          "probability": 0.8,
+          "description": "各微应用可独立发布更新",
           "impact": {
-            "财务回报": 40,
-            "成长潜力": 30,
-            "心理负荷": 90,
-            "时间自主": 30
+            "学习成本": 0,
+            "生态支持": 10,
+            "集成难度": -5,
+            "团队适配": 10
           },
           "threshold": {
-            "心理负荷": 85
+            "团队适配": 70
           }
         }
       ]
     },
     {
       "id": "path-3",
-      "name": "自主创业 → 产品落地 → 市场爆红",
-      "probability": 0.30,
-      "income": 95,
-      "growth": 90,
-      "risk": 85,
-      "happiness": 88,
-      "explanation": "精准踩中风口需求，技术壁垒转化为规模化收入，但前期极耗心力。",
+      "name": "Angular 方案 → 企业稳定 → 长期维护",
+      "probability": 0.6,
+      "income": 75,
+      "growth": 70,
+      "risk": 25,
+      "happiness": 75,
+      "explanation": "适合对规范性要求极高的企业级应用",
       "timeline": [
         {
-          "year": 1,
-          "event": "产品落地",
-          "probability": 0.5,
-          "description": "完成MVP开发并获得种子用户验证",
-          "impact": {
-            "财务回报": 30,
-            "成长潜力": 80,
-            "心理负荷": 85,
-            "时间自主": 50
-          },
-          "threshold": {
-            "成长潜力": 70
-          }
-        },
-        {
-          "year": 2,
-          "event": "市场爆红",
-          "probability": 0.4,
-          "description": "获资本接力并实现千万级月流水",
-          "impact": {
-            "财务回报": 95,
-            "成长潜力": 95,
-            "心理负荷": 75,
-            "时间自主": 85
-          },
-          "threshold": {
-            "财务回报": 85
-          }
-        }
-      ]
-    },
-    {
-      "id": "path-4",
-      "name": "自主创业 → 融资受阻 → 资金断裂",
-      "probability": 0.70,
-      "income": 20,
-      "growth": 25,
-      "risk": 95,
-      "happiness": 30,
-      "explanation": "一级市场寒冬叠加变现周期拉长，现金流枯竭导致项目终止。",
-      "timeline": [
-        {
-          "year": 1,
-          "event": "融资受阻",
-          "probability": 0.7,
-          "description": "估值分歧过大导致TS签署失败",
-          "impact": {
-            "财务回报": 10,
-            "成长潜力": 40,
-            "心理负荷": 95,
-            "时间自主": 20
-          },
-          "threshold": {
-            "心理负荷": 90
-          }
-        },
-        {
-          "year": 2,
-          "event": "资金断裂",
-          "probability": 0.8,
-          "description": "账上现金不足支撑三个月运营",
-          "impact": {
-            "财务回报": 5,
-            "成长潜力": 15,
-            "心理负荷": 98,
-            "时间自主": 15
-          },
-          "threshold": {
-            "财务回报": 20
-          }
-        }
-      ]
-    },
-    {
-      "id": "path-5",
-      "name": "跨界转行 → 技能重塑 → 平稳过渡",
-      "probability": 0.60,
-      "income": 72,
-      "growth": 75,
-      "risk": 35,
-      "happiness": 82,
-      "explanation": "可迁移能力快速适配新场景，实现工作生活平衡与中等幅度的财务增长。",
-      "timeline": [
-        {
-          "year": 1,
-          "event": "技能重塑",
-          "probability": 0.7,
-          "description": "完成跨行业资质认证与内部轮岗",
-          "impact": {
-            "财务回报": 50,
-            "成长潜力": 65,
-            "心理负荷": 55,
-            "时间自主": 65
-          },
-          "threshold": {
-            "成长潜力": 60
-          }
-        },
-        {
-          "year": 2,
-          "event": "平稳过渡",
-          "probability": 0.85,
-          "description": "独立负责核心模块并恢复行业薪酬水平",
-          "impact": {
-            "财务回报": 75,
-            "成长潜力": 75,
-            "心理负荷": 40,
-            "时间自主": 80
-          },
-          "threshold": {
-            "时间自主": 70
-          }
-        }
-      ]
-    },
-    {
-      "id": "path-6",
-      "name": "跨界转行 → 水土不服 → 阵痛调整",
-      "probability": 0.40,
-      "income": 55,
-      "growth": 45,
-      "risk": 50,
-      "happiness": 60,
-      "explanation": "行业认知偏差导致决策失误，需重新校准定位并承担短期阵痛。",
-      "timeline": [
-        {
-          "year": 1,
-          "event": "水土不服",
-          "probability": 0.5,
-          "description": "原有管理经验无法适配敏捷型团队",
-          "impact": {
-            "财务回报": 45,
-            "成长潜力": 40,
-            "心理负荷": 75,
-            "时间自主": 55
-          },
-          "threshold": {
-            "心理负荷": 70
-          }
-        },
-        {
-          "year": 2,
-          "event": "阵痛调整",
+          "event": "企业稳定",
           "probability": 0.6,
-          "description": "主动降维接受基础岗重新积累行业认知",
+          "description": "遵循强类型规范降低 Bug 率",
           "impact": {
-            "财务回报": 50,
-            "成长潜力": 50,
-            "心理负荷": 65,
-            "时间自主": 60
+            "学习成本": -20,
+            "生态支持": -5,
+            "集成难度": -5,
+            "团队适配": -15
           },
           "threshold": {
-            "财务回报": 55
+            "团队适配": 60
+          }
+        },
+        {
+          "event": "长期维护",
+          "probability": 0.7,
+          "description": "代码结构清晰易于交接",
+          "impact": {
+            "学习成本": 0,
+            "生态支持": 0,
+            "集成难度": 5,
+            "团队适配": 5
+          },
+          "threshold": {
+            "集成难度": 70
           }
         }
       ]
@@ -566,26 +426,26 @@
   "recommendation": {
     "rank": [
       {
-        "option": "跨界转行",
-        "score": 76.2,
-        "summary": "风险收益比最优，兼顾心理舒适度与中长期成长，适合追求稳健转型的决策者"
+        "option": "Vue 方案",
+        "score": 85.5,
+        "summary": "综合平衡最佳，适合大多数微前端场景"
       },
       {
-        "option": "留任深耕",
-        "score": 72.8,
-        "summary": "财务基本盘稳固但增长边际递减，适合风险厌恶型及需维持现金流的阶段"
+        "option": "React 方案",
+        "score": 83,
+        "summary": "扩展性强但前期投入较高"
       },
       {
-        "option": "自主创业",
-        "score": 54.5,
-        "summary": "潜在收益上限极高但尾部风险突出，需极强资源储备与激进风险偏好支撑"
+        "option": "Angular 方案",
+        "score": 70.2,
+        "summary": "规范严谨但体积与学习成本较高"
       }
     ],
-    "analysis": "综合加权推演显示，跨界转行在财务回报、心理负荷与时间自主的平衡点上表现最佳。留任深耕提供确定性但缺乏弹性，自主创业虽契合长期愿景但失败概率与机会成本过高。建议结合个人风险偏好滑块，若倾向激进可配置20%精力试水创业，主体执行转行策略以构建反脆弱职业结构。"
+    "analysis": "基于微前端特性，集成难度权重最高。Vue 在集成难度与团队适配上表现均衡；React 虽生态强但学习成本略高；Angular 规范性好但体积影响性能。建议根据团队现有技能栈微调变量值后决策。"
   },
   "scores": {
-    "留任深耕": 72.8,
-    "自主创业": 54.5,
-    "跨界转行": 76.2
+    "Vue 方案": 85.5,
+    "React 方案": 83,
+    "Angular 方案": 70.2
   }
 }

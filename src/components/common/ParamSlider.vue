@@ -26,7 +26,7 @@ function onInput(val) {
       <span>{{ config.name }}</span>
       <span class="param-value">{{ value }}</span>
     </div>
-    <el-slider :model-value="value" :min="config.range?.[0] ?? 0" :max="config.range?.[1] ?? 100" @input="onInput" />
+    <el-slider :model-value="value" :min="config.range?.[0] ?? 0" :max="config.range?.[1] ?? 100" :show-tooltip="false" @update:model-value="onInput" />
   </div>
 </template>
 

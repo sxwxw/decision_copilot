@@ -29,7 +29,7 @@ function handleSubmit() {
   <div class="input-panel">
     <h3>决策问题</h3>
     <el-input v-model="text" type="textarea" :rows="5" :disabled="loading"
-      placeholder="描述你的决策问题，例如：我在考虑要不要从大厂跳槽去创业公司..." show-word-limit :maxlength="500" resize="none" />
+      placeholder="描述你的决策问题，例如：公司要开拓新市场，我该选择哪个区域作为试点？" show-word-limit :maxlength="500" resize="none" />
     <el-button type="primary" class="btn-submit" :disabled="loading || !text.trim()" :loading="loading"
       :icon="loading ? Loading : undefined" @click="handleSubmit">
       {{ loading ? '建模中...' : '提交建模' }}

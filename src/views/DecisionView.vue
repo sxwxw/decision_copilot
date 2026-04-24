@@ -62,9 +62,14 @@ function onSubmit(input) {
   buildModel()
 }
 
+let _debounceTimer = null
+
 function onUpdateParam(name, value) {
   state.paramValues[name] = value
-  recalcScores()
+  clearTimeout(_debounceTimer)
+  _debounceTimer = setTimeout(() => {
+    recalcScores()
+  }, 300)
 }
 
 function onNodeClick(nodeData) {
@@ -108,6 +113,7 @@ const topWeightParam = computed(() => {
       <div class="panel result-col">
         <div class="result-tree" v-if="state.model">
           <DecisionTree :tree-data="state.model.treeData" :selected-node="state.selectedNode"
+            :adjusted-prob-map="state.adjustedProbabilities"
             @node-click="onNodeClick" />
         </div>
         <div class="result-tree placeholder" v-else>
@@ -129,6 +135,7 @@ const topWeightParam = computed(() => {
               :get-score-attribution="getScoreAttribution"
               :base-scores="state.model?.scores ?? {}"
               :recommendation="state.model?.recommendation ?? null"
+              :adjusted-prob-map="state.adjustedProbabilities"
             />
           </div>
         </div>

@@ -18,6 +18,7 @@ import * as d3 from 'd3'
 const props = defineProps({
   treeData: { type: Object, default: null },
   selectedNode: { type: Object, default: null },
+  adjustedProbMap: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['nodeClick'])
@@ -38,8 +39,24 @@ const STATUS_COLORS = {
   neutral: '#9ca3af',    // 向后兼容旧字段
 }
 
+// Resolve adjusted probability from a node's pathIds
+function resolveAdjustedProb(node) {
+  const map = props.adjustedProbMap
+  if (!map || !Object.keys(map).length) return null
+  const pathIds = node.data.pathIds || []
+  for (const pid of pathIds) {
+    if (map[pid] != null) return map[pid]
+  }
+  return null
+}
+
 function renderTree() {
-  if (!svgRef.value || !props.treeData) return
+
+  // Save current zoom transform before re-render
+  let savedTransform = null
+  if (svg && zoomBehavior) {
+    try { savedTransform = d3.zoomTransform(svgRef.value.querySelector('svg') || svg.node()) } catch {}
+  }
 
   const d3Sel = d3.select(svgRef.value)
   d3Sel.selectAll('*').remove()
@@ -99,7 +116,8 @@ function renderTree() {
     .attr('y', d => (d.source.x + d.target.x) / 2 - 8)
     .attr('text-anchor', 'middle')
     .text(d => {
-      const p = d.target.data.probability
+      const adjusted = resolveAdjustedProb(d.target)
+      const p = adjusted != null ? adjusted : d.target.data.probability
       return p != null ? `P=${(p * 100).toFixed(0)}%` : ''
     })
 
@@ -145,11 +163,26 @@ function renderTree() {
     .on('zoom', event => zoomG.attr('transform', event.transform))
   svg.call(zoomBehavior)
 
-  // 默认视角
-  svg.call(
-    zoomBehavior.transform,
-    d3.zoomIdentity.translate(120, height / 2).scale(0.85)
-  )
+  // Restore zoom if transform was saved, otherwise use default view
+  if (savedTransform) {
+    svg.call(zoomBehavior.transform, savedTransform)
+  } else {
+    svg.call(
+      zoomBehavior.transform,
+      d3.zoomIdentity.translate(120, height / 2).scale(0.85)
+    )
+  }
+
+  // 重绘后恢复高亮状态（解决滑块拖动触发重绘丢失高亮的问题）
+  if (props.selectedNode && root) {
+    const target = root.descendants().find(n => n.data.id === props.selectedNode.id)
+    if (target) {
+      console.log('[DecisionTree] restoring highlight for node:', target.data.name, 'step:', target.data.step)
+      highlight(target)
+    } else {
+      console.warn('[DecisionTree] could not find highlight target after re-render:', props.selectedNode.id, props.selectedNode.name)
+    }
+  }
 }
 
 function highlight(d) {

@@ -8,22 +8,70 @@ const props = defineProps({
   node: { type: Object, default: null },
   /** 用户当前最高权重的偏好参数 */
   topParam: { type: String, default: '' },
+  /** 调整后概率映射 pathId -> probability */
+  adjustedProbMap: { type: Object, default: () => ({}) },
 })
-
-const STATUS_MAP = {
-  positive: { type: 'success', label: '+' },
-  success: { type: 'success', label: '+' },
-  negative: { type: 'danger', label: '-' },
-  error: { type: 'danger', label: '-' },
-  warning: { type: 'warning', label: '!' },
-  neutral: { type: 'info', label: '~' },
-}
 
 /** 从 pathChain 中提取面包屑路径（不含当前节点） */
 const breadcrumb = computed(() => props.pathChain.slice(0, -1))
 
 /** 当前节点的子分支列表 */
 const branches = computed(() => props.node?.children || [])
+
+/** 获取子节点调整后的概率（优先 adjustedProbMap，fallback 到基准概率） */
+function getAdjustedChildProb(child) {
+  const map = props.adjustedProbMap
+  if (!map || !Object.keys(map).length) return child.probability ?? 0
+  const pathIds = child.pathIds || []
+  for (const pid of pathIds) {
+    if (map[pid] != null) return map[pid]
+  }
+  return child.probability ?? 0
+}
+function getBranchTradeoffs(child) {
+  return child.logic_payload?.trade_offs || props.node?.logic_payload?.trade_offs || []
+}
+
+/** 计算关键分歧变量 */
+const divergenceKey = computed(() => {
+  const branchList = branches.value
+  if (!branchList.length) return null
+
+  // 收集所有子分支的 trade_offs
+  const allTradeoffs = branchList.map(getBranchTradeoffs)
+  // 如果全部为空，无数据
+  const hasData = allTradeoffs.some(t => t.length > 0)
+  if (!hasData) return null
+
+  // 合并所有维度
+  const dimensions = new Set()
+  for (const tos of allTradeoffs) {
+    for (const t of tos) {
+      dimensions.add(t.dimension)
+    }
+  }
+
+  // 计算每个维度的极差（max delta - min delta）
+  let maxRange = 0
+  let keyDim = ''
+  for (const dim of dimensions) {
+    const deltas = []
+    for (const tos of allTradeoffs) {
+      const found = tos.find(t => t.dimension === dim)
+      if (found) deltas.push(found.delta)
+    }
+    if (deltas.length >= 2) {
+      const range = Math.max(...deltas) - Math.min(...deltas)
+      if (range > maxRange) {
+        maxRange = range
+        keyDim = dim
+      }
+    }
+  }
+
+  if (!keyDim) return null
+  return { dimension: keyDim, range: Math.round(maxRange * 100) / 100 }
+})
 
 /** 前端模板拼接的决策建议 */
 const suggestion = computed(() => {
@@ -32,15 +80,30 @@ const suggestion = computed(() => {
   const lp = node.logic_payload
   const topParam = props.topParam || '核心偏好'
   const branchList = branches.value
-  // 取最高概率的子分支
-  const bestBranch = branchList.reduce((a, b) =>
-    (b.probability ?? 0) > (a.probability ?? 0) ? b : a, branchList[0])
-  const bestName = bestBranch?.name || '最优分支'
 
-  let text = `系统检测到您已进入「${node.name}」。此阶段的 ${lp.key_impact || '核心收益'} 潜力最大。`
-  if (topParam) text += `基于您当前的偏好（${topParam}），`
-  text += `后续建议优先关注「${bestName}」以锁定最高收益。`
-  if (lp.opportunity_cost) text += `机会成本：${lp.opportunity_cost}。`
+  // 按事件性质分组
+  const positive = branchList.filter(b => b.status === 'positive' || b.status === 'neutral')
+  const negative = branchList.filter(b => b.status === 'negative' || b.status === 'error')
+
+  // 正向分支中选概率最高的
+  const bestPositive = positive.length
+    ? positive.reduce((a, b) => getAdjustedChildProb(b) > getAdjustedChildProb(a) ? b : a, positive[0])
+    : null
+  // 负向分支中选概率最高的
+  const bestNegative = negative.length
+    ? negative.reduce((a, b) => getAdjustedChildProb(b) > getAdjustedChildProb(a) ? b : a, negative[0])
+    : null
+
+  let text = `已进入「${node.name}」。关键考量：${lp.key_impact || '综合权衡'}。`
+  if (bestPositive) {
+    const prob = Math.round(getAdjustedChildProb(bestPositive) * 100)
+    if (topParam) text += `结合你的偏好（${topParam}），`
+    text += `建议关注「${bestPositive.name}」路径（${prob}%）。`
+  }
+  if (bestNegative && getAdjustedChildProb(bestNegative) > 0.4) {
+    const prob = Math.round(getAdjustedChildProb(bestNegative) * 100)
+    text += `需警惕「${bestNegative.name}」（${prob}%），建议提前评估。`
+  }
   return text
 })
 </script>
@@ -66,6 +129,11 @@ const suggestion = computed(() => {
       </el-tag>
     </h3>
 
+    <!-- 敏感度标识 -->
+    <div v-if="divergenceKey" class="sensitivity-indicator">
+      关键分歧：<span class="key-dimension">{{ divergenceKey.dimension }}</span>（极差 <span class="key-range">{{ divergenceKey.range }}</span>）
+    </div>
+
     <!-- 分叉对比卡片 -->
     <div v-if="branches.length" class="fork-cards">
       <div
@@ -76,15 +144,12 @@ const suggestion = computed(() => {
       >
         <div class="fork-card-header">
           <span class="fork-name">{{ child.name }}</span>
-          <el-tag v-if="child.status" :type="STATUS_MAP[child.status]?.type || 'info'" size="small" effect="plain">
-            {{ STATUS_MAP[child.status]?.label }}
-          </el-tag>
         </div>
 
         <div class="fork-stats">
           <div class="fork-stat">
             <span class="fork-stat-label">概率</span>
-            <span class="fork-stat-value">{{ ((child.probability ?? 0) * 100).toFixed(0) }}%</span>
+            <span class="fork-stat-value">{{ ((getAdjustedChildProb(child)) * 100).toFixed(0) }}%</span>
           </div>
           <div class="fork-stat">
             <span class="fork-stat-label">分值</span>
@@ -163,6 +228,27 @@ const suggestion = computed(() => {
   color: var(--accent, #3b82f6);
 }
 
+/* 敏感度标识 */
+.sensitivity-indicator {
+  background: var(--accent-bg, rgba(59, 130, 246, 0.06));
+  border-left: 3px solid var(--accent, #3b82f6);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text, #555);
+}
+
+.key-dimension {
+  font-weight: 700;
+  color: var(--accent, #3b82f6);
+}
+
+.key-range {
+  font-weight: 600;
+  color: #d97706;
+}
+
 /* 分叉卡片容器 */
 .fork-cards {
   display: flex;
@@ -179,20 +265,6 @@ const suggestion = computed(() => {
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 14px;
-}
-
-.fork-card.positive,
-.fork-card.success {
-  border-left: 3px solid #059669;
-}
-
-.fork-card.negative,
-.fork-card.error {
-  border-left: 3px solid #dc2626;
-}
-
-.fork-card.warning {
-  border-left: 3px solid #d97706;
 }
 
 .fork-card-header {

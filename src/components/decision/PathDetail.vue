@@ -18,6 +18,8 @@ const props = defineProps({
   baseScores: { type: Object, default: () => ({}) },
   /** 推荐结论（含 analysis 分析文本） */
   recommendation: { type: Object, default: null },
+  /** 调整后概率映射 pathId -> probability */
+  adjustedProbMap: { type: Object, default: () => ({}) },
 })
 
 const STATUS_MAP = {
@@ -27,6 +29,17 @@ const STATUS_MAP = {
   error: { type: 'danger', label: '-' },
   warning: { type: 'warning', label: '!' },
   neutral: { type: 'info', label: '~' },
+}
+
+/** 获取节点调整后的概率：通过 pathIds 从 adjustedProbMap 查找 */
+function getAdjustedProb(node) {
+  const map = props.adjustedProbMap
+  if (!map || !Object.keys(map).length) return null
+  const pathIds = node?.pathIds || []
+  for (const pid of pathIds) {
+    if (map[pid] != null) return map[pid]
+  }
+  return null
 }
 
 /** 是否为叶节点路径溯源模式 */
@@ -114,6 +127,7 @@ const options = computed(() => {
     :path-chain="pathChain"
     :node="node"
     :top-param="topParam"
+    :adjusted-prob-map="adjustedProbMap"
   />
 
   <!-- 路径溯源（叶节点） -->
@@ -122,7 +136,7 @@ const options = computed(() => {
 
     <!-- 到达概率 -->
     <el-tag type="primary" effect="light" class="probability-badge" size="large">
-      到达概率：<strong>{{ ((pathChain[pathChain.length - 1]?.probability ?? 0) * 100).toFixed(0) }}%</strong>
+      到达概率：<strong>{{ ((getAdjustedProb(pathChain[pathChain.length - 1]) ?? pathChain[pathChain.length - 1]?.probability ?? 0) * 100).toFixed(0) }}%</strong>
     </el-tag>
 
     <!-- 路径链可视化 -->

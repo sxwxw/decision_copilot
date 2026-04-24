@@ -4,16 +4,19 @@ const QWEN_API_URL = process.env.DASHSCOPE_API_URL || 'https://dashscope.aliyunc
 const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus'
 const API_KEY = process.env.DASHSCOPE_API_KEY || ''
 
-export async function callQwen(systemPrompt, userPrompt, retries = 2) {
+export async function callQwen(systemPrompt, userPrompt, model, retries = 2, enableThinking = false) {
   if (!API_KEY) {
     throw new Error('DASHSCOPE_API_KEY not configured')
   }
+
+  const modelName = model || QWEN_MODEL;
 
   // Ensure user prompt mentions "JSON" for relay validation
   const enhancedUserPrompt = userPrompt.includes('JSON') || userPrompt.includes('json')
     ? userPrompt
     : userPrompt + '（请以JSON格式返回）'
 
+  console.log('[callQwen] model:', modelName, '| url:', QWEN_API_URL, '| system_len:', systemPrompt.length, '| user_len:', userPrompt.length)
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(QWEN_API_URL, {
@@ -23,13 +26,14 @@ export async function callQwen(systemPrompt, userPrompt, retries = 2) {
           'Authorization': `Bearer ${API_KEY}`,
         },
         body: JSON.stringify({
-          model: QWEN_MODEL,
+          model: modelName,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: enhancedUserPrompt },
           ],
           temperature: 0.7,
           response_format: { type: 'json_object' },
+          enable_thinking: enableThinking,
         }),
       })
 

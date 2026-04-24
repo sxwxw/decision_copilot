@@ -1,17 +1,25 @@
 :root {
-  --text: #555;
-  --text-h: #1a1a2e;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f5f5f5;
-  --accent: #6366f1;
-  --accent-bg: rgba(99, 102, 241, 0.1);
-  --accent-border: rgba(99, 102, 241, 0.5);
+  /* 方案三主色 */
+  --text: #6b7280;
+  --text-h: #111827;
+  --bg: #ffffff;
+  --border: #e5e7eb;
+  --code-bg: #f9fafb;
+  --accent: #3b82f6;
+  --accent-bg: rgba(59, 130, 246, 0.06);
+  --accent-border: rgba(59, 130, 246, 0.5);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   color-scheme: light dark;
+
+  /* 覆盖 Element Plus 主题色，与方案三对齐 */
+  --el-color-primary: #3b82f6;
+  --el-color-success: #059669;
+  --el-color-warning: #d97706;
+  --el-color-danger: #dc2626;
+  --el-color-info: #6b7280;
 }
 
 @media (prefers-color-scheme: dark) {

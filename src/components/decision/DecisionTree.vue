@@ -29,11 +29,11 @@ const CARD_W = 140
 const CARD_H = 44
 
 const STATUS_COLORS = {
-  success: '#10b981',
-  positive: '#10b981',   // 向后兼容旧字段
-  error: '#ef4444',
-  negative: '#ef4444',   // 向后兼容旧字段
-  warning: '#f59e0b',
+  success: '#059669',
+  positive: '#059669',   // 向后兼容旧字段
+  error: '#dc2626',
+  negative: '#dc2626',   // 向后兼容旧字段
+  warning: '#d97706',
   info: '#9ca3af',
   neutral: '#9ca3af',    // 向后兼容旧字段
 }
@@ -85,7 +85,7 @@ function renderTree() {
     .append('path')
     .attr('class', d => `d3-link-path ${d.target.data.isDashed ? 'd3-link-dashed' : ''}`)
     .attr('d', linkGen)
-    .attr('stroke', '#cbd5e1')
+    .attr('stroke', '#d1d5db')
     .attr('stroke-width', d => 1 + (d.target.data.probability ?? 0.5) * 4)
 
   // ── 连线标签 ──
@@ -125,9 +125,9 @@ function renderTree() {
     .attr('y', -CARD_H / 2)
     .attr('width', CARD_W)
     .attr('height', CARD_H)
-    .attr('rx', 8)
+    .attr('rx', 4)
     .attr('fill', '#fff')
-    .attr('stroke', '#e2e8f0')
+    .attr('stroke', '#e5e7eb')
 
   nodes
     .append('text')
@@ -234,9 +234,9 @@ onMounted(() => {
 }
 
 .d3-node-in-path .d3-node-card {
-  stroke: var(--accent, #6366f1);
+  stroke: #3b82f6;
   stroke-width: 2;
-  fill: #f5f3ff;
+  fill: #eff6ff;
 }
 
 .d3-node-out-of-path {
@@ -250,7 +250,7 @@ onMounted(() => {
 }
 
 .d3-node-in-path .d3-node-name {
-  fill: var(--accent, #6366f1);
+  fill: var(--accent, #3b82f6);
   font-weight: 600;
 }
 
@@ -264,7 +264,7 @@ onMounted(() => {
 }
 
 .d3-link-in-path {
-  stroke: var(--accent, #6366f1) !important;
+  stroke: var(--accent, #3b82f6) !important;
   stroke-width: 3;
   opacity: 1 !important;
 }
@@ -281,7 +281,7 @@ onMounted(() => {
 }
 
 .d3-link-label-in-path {
-  fill: var(--accent, #6366f1);
+  fill: var(--accent, #3b82f6);
   font-weight: 600;
 }
 </style>

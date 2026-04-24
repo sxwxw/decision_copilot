@@ -46,7 +46,12 @@
       "Bash(npx vue-tsc *)",
       "Bash(curl -s http://localhost:3000/api/decision/model -X POST -H \"Content-Type: application/json\" -d '{\"userInput\":\"test\"}')",
       "mcp__chrome-devtools__new_page",
-      "mcp__chrome-devtools__fill_form"
+      "mcp__chrome-devtools__fill_form",
+      "Bash(git reset *)",
+      "Bash(git rm *)",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__get_console_message",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)"
     ],
     "deny": [
       "Bash(git push *)",

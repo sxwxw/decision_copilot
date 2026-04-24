@@ -20,12 +20,12 @@ const props = defineProps({
 .metric-card {
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid var(--border, #e5e4e7);
+  border: 1px solid var(--border, #e5e7eb);
   background: var(--bg, #fff);
 }
 .metric-card.highlight {
-  border-color: var(--accent, #6366f1);
-  background: rgba(99, 102, 241, 0.04);
+  border-color: var(--accent, #3b82f6);
+  background: var(--accent-bg, rgba(59, 130, 246, 0.04));
 }
 .metric-label {
   font-size: 12px;
@@ -46,7 +46,7 @@ const props = defineProps({
 }
 .metric-fill {
   height: 100%;
-  background: var(--accent, #6366f1);
+  background: var(--accent, #3b82f6);
   border-radius: 3px;
   transition: width 0.4s ease;
 }

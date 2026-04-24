@@ -4,12 +4,11 @@ import InputPanel from '../components/decision/InputPanel.vue'
 import ParamPanel from '../components/decision/ParamPanel.vue'
 import DecisionTree from '../components/decision/DecisionTree.vue'
 import PathDetail from '../components/decision/PathDetail.vue'
-import Recommendation from '../components/decision/Recommendation.vue'
 import { useDecisionModel } from '../composables/useDecisionModel'
 
 const { state, scores, buildModel, recalcScores, runSimulation, selectNode,
   counterfactuals, counterfactualActive, activeCounterfactual,
-  applyCounterfactual, resetCounterfactual, getScoreDiff, getAdjustedScore } = useDecisionModel()
+  applyCounterfactual, resetCounterfactual, getScoreDiff, getAdjustedScore, getScoreAttribution } = useDecisionModel()
 
 const leftPanelWidth = ref(300)
 const MIN_LEFT = 260
@@ -127,11 +126,10 @@ const topWeightParam = computed(() => {
               :view-mode="state.selectedNode?.viewMode ?? 'trace'"
               :top-param="topWeightParam"
               :get-adjusted-score="getAdjustedScore"
+              :get-score-attribution="getScoreAttribution"
+              :base-scores="state.model?.scores ?? {}"
+              :recommendation="state.model?.recommendation ?? null"
             />
-          </div>
-          <div class="recommendation-col">
-            <Recommendation :recommendation="state.model?.recommendation" :scores="scores"
-              :get-score-diff="getScoreDiff" />
           </div>
         </div>
       </div>
@@ -155,7 +153,7 @@ const topWeightParam = computed(() => {
 }
 
 .panel {
-  border-right: 1px solid var(--border, #e5e4e7);
+  border-right: 1px solid var(--border, #e5e7eb);
   overflow: hidden;
 }
 
@@ -174,7 +172,7 @@ const topWeightParam = computed(() => {
 
 .left-divider {
   height: 1px;
-  background: var(--border, #e5e4e7);
+  background: var(--border, #e5e7eb);
   margin: 0 12px;
   flex-shrink: 0;
 }
@@ -189,7 +187,7 @@ const topWeightParam = computed(() => {
 
 .resize-divider:hover,
 .resize-divider:active {
-  background: var(--accent, #6366f1);
+  background: var(--accent, #3b82f6);
 }
 
 .result-col {
@@ -234,18 +232,18 @@ const topWeightParam = computed(() => {
   content: '';
   width: 40px;
   height: 3px;
-  background: var(--border, #e5e4e7);
+  background: var(--border, #e5e7eb);
   border-radius: 2px;
 }
 
 .resize-divider-h:hover,
 .resize-divider-h:active {
-  background: var(--accent-bg, rgba(99, 102, 241, 0.1));
+  background: var(--accent-bg, rgba(59, 130, 246, 0.06));
 }
 
 .resize-divider-h:hover::after,
 .resize-divider-h:active::after {
-  background: var(--accent, #6366f1);
+  background: var(--accent, #3b82f6);
   height: 4px;
   width: 60px;
 }
@@ -253,18 +251,12 @@ const topWeightParam = computed(() => {
 .result-bottom {
   display: flex;
   gap: 0;
-  border-top: 1px solid var(--border, #e5e4e7);
+  border-top: 1px solid var(--border, #e5e7eb);
   flex-shrink: 0;
 }
 
 .path-detail-col {
-  flex: 0 0 65%;
-  border-right: 1px solid var(--border, #e5e4e7);
-  overflow-y: auto;
-}
-
-.recommendation-col {
-  flex: 0 0 35%;
+  flex: 1;
   overflow-y: auto;
 }
 </style>

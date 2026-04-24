@@ -159,8 +159,8 @@ const suggestion = computed(() => {
   color: var(--text-h, #1a1a2e);
 }
 
-.fork-title span {
-  color: var(--accent, #6366f1);
+.fork-title span:not([class]) {
+  color: var(--accent, #3b82f6);
 }
 
 /* 分叉卡片容器 */
@@ -176,29 +176,23 @@ const suggestion = computed(() => {
   flex: 0 0 280px;
   min-width: 240px;
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   padding: 14px;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.fork-card:hover {
-  border-color: var(--accent, #6366f1);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 .fork-card.positive,
 .fork-card.success {
-  border-left: 3px solid #10b981;
+  border-left: 3px solid #059669;
 }
 
 .fork-card.negative,
 .fork-card.error {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid #dc2626;
 }
 
 .fork-card.warning {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid #d97706;
 }
 
 .fork-card-header {
@@ -226,7 +220,7 @@ const suggestion = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--code-bg, #f5f5f5);
+  background: var(--code-bg, #f9fafb);
   border-radius: 8px;
   padding: 8px 10px;
   text-align: center;
@@ -242,7 +236,7 @@ const suggestion = computed(() => {
 .fork-stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #3b82f6);
 }
 
 /* logic_payload 元数据 */
@@ -290,8 +284,8 @@ const suggestion = computed(() => {
 
 /* 决策建议 */
 .suggestion {
-  background: var(--accent-bg, rgba(99, 102, 241, 0.06));
-  border-left: 3px solid var(--accent, #6366f1);
+  background: var(--accent-bg, rgba(59, 130, 246, 0.06));
+  border-left: 3px solid var(--accent, #3b82f6);
   border-radius: 0 8px 8px 0;
   padding: 12px 14px;
   margin-bottom: 16px;

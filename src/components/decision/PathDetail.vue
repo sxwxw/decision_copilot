@@ -12,6 +12,12 @@ const props = defineProps({
   topParam: { type: String, default: '' },
   /** 获取权重调整后的方案得分 */
   getAdjustedScore: { type: Function, default: () => 50 },
+  /** 获取分数差异归因文本 */
+  getScoreAttribution: { type: Function, default: () => '' },
+  /** LLM 基准分 */
+  baseScores: { type: Object, default: () => ({}) },
+  /** 推荐结论（含 analysis 分析文本） */
+  recommendation: { type: Object, default: null },
 })
 
 const STATUS_MAP = {
@@ -33,13 +39,26 @@ const isOverview = computed(() => props.viewMode === 'overview')
 /** 全局概览：所有方案列表 */
 const options = computed(() => {
   if (!props.node?.children) return []
-  return props.node.children.map(c => ({
-    id: c.id,
-    name: c.name,
-    score: props.getAdjustedScore(c.name) ?? c.score ?? 50,
-    status: c.status,
-    logic_payload: c.logic_payload,
-  })).sort((a, b) => b.score - a.score)
+  return props.node.children.map(c => {
+    const adjScore = props.getAdjustedScore(c.name) ?? c.score ?? 50
+    const baseScore = props.baseScores[c.name] ?? c.score ?? 50
+    const diff = adjScore - baseScore
+    return {
+      id: c.id,
+      name: c.name,
+      score: adjScore,
+      baseScore,
+      diff,
+      status: c.status,
+      logic_payload: c.logic_payload,
+      attribution: props.getScoreAttribution(c.name),
+    }
+  }).sort((a, b) => b.score - a.score).map(c => ({
+    ...c,
+    score: Math.round(c.score * 100) / 100,
+    baseScore: Math.round(c.baseScore * 100) / 100,
+    diff: Math.round((c.score - c.baseScore) * 100) / 100,
+  }))
 })
 </script>
 
@@ -58,7 +77,20 @@ const options = computed(() => {
           <span class="rank-num">{{ idx + 1 }}</span>
           <span class="rank-name">{{ opt.name }}</span>
         </div>
-        <span class="option-score">{{ opt.score }}</span>
+        <div class="option-score-group">
+          <span class="option-score">{{ opt.score }}</span>
+          <span class="option-base-score">基准 {{ opt.baseScore }}</span>
+          <span
+            v-if="Math.abs(opt.diff) > 5"
+            class="option-diff"
+            :class="opt.diff > 0 ? 'diff-positive' : 'diff-negative'"
+          >
+            {{ opt.diff > 0 ? '↑' : '↓' }} {{ opt.diff > 0 ? '+' : '' }}{{ opt.diff }}
+          </span>
+        </div>
+        <div v-if="opt.attribution" class="option-attribution">
+          {{ opt.attribution }}
+        </div>
         <div v-if="opt.logic_payload" class="option-payload">
           <el-tag :type="
             opt.logic_payload.risk_level === '低' ? 'success' :
@@ -69,6 +101,10 @@ const options = computed(() => {
           <span class="option-key-impact">{{ opt.logic_payload.key_impact }}</span>
         </div>
       </div>
+    </div>
+    <div v-if="recommendation?.analysis" class="analysis-card">
+      <h4 class="analysis-title">分析</h4>
+      <p>{{ recommendation.analysis }}</p>
     </div>
   </div>
 
@@ -143,13 +179,13 @@ const options = computed(() => {
 .probability-badge {
   font-size: 13px;
   padding: 6px 10px;
-  background: var(--accent-bg, rgba(99, 102, 241, 0.1));
+  background: var(--accent-bg, rgba(59, 130, 246, 0.06));
   border-radius: 6px;
   display: inline-block;
   margin-bottom: 14px;
 }
 .probability-badge strong {
-  color: var(--accent, #6366f1);
+  color: var(--accent, #3b82f6);
 }
 
 /* 全局概览 */
@@ -164,15 +200,15 @@ const options = computed(() => {
   align-items: center;
   gap: 12px;
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   padding: 12px 14px;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition: border-color 0.2s;
 }
 
 .option-card:hover {
-  border-color: var(--accent, #6366f1);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.05);
 }
 
 .option-rank {
@@ -189,7 +225,7 @@ const options = computed(() => {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--accent, #6366f1);
+  background: var(--accent, #3b82f6);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -201,11 +237,45 @@ const options = computed(() => {
   color: var(--text-h, #1a1a2e);
 }
 
+.option-score-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+  gap: 1px;
+}
+
 .option-score {
   font-size: 20px;
   font-weight: 700;
-  color: var(--accent, #6366f1);
-  margin-left: auto;
+  color: var(--accent, #3b82f6);
+  line-height: 1.1;
+}
+
+.option-base-score {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.option-diff {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.option-diff.diff-positive {
+  color: #059669;
+}
+
+.option-diff.diff-negative {
+  color: #d97706;
+}
+
+.option-attribution {
+  font-size: 11px;
+  color: #64748b;
+  max-width: 200px;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .option-payload {
@@ -227,7 +297,7 @@ const options = computed(() => {
   gap: 4px;
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--code-bg, #f5f5f5);
+  background: var(--code-bg, #f9fafb);
   border-radius: 8px;
 }
 
@@ -242,7 +312,7 @@ const options = computed(() => {
   align-items: center;
   gap: 6px;
   background: #fff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 6px 10px;
   min-width: 100px;
@@ -250,17 +320,17 @@ const options = computed(() => {
 }
 .chain-card.positive,
 .chain-card.success {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: #059669;
+  background: rgba(5, 150, 105, 0.04);
 }
 .chain-card.negative,
 .chain-card.error {
-  border-color: #ef4444;
-  background: #fef2f2;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.04);
 }
 .chain-card.warning {
-  border-color: #f59e0b;
-  background: #fffbeb;
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.04);
 }
 
 .chain-step-label {
@@ -278,7 +348,7 @@ const options = computed(() => {
 .chain-value {
   font-size: 12px;
   font-weight: 700;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #3b82f6);
 }
 
 .chain-status {
@@ -295,9 +365,30 @@ const options = computed(() => {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text, #555);
-  border-top: 1px solid var(--border, #e5e4e7);
+  border-top: 1px solid var(--border, #e5e7eb);
   padding-top: 12px;
   margin-top: 16px;
+}
+
+.analysis-card {
+  background: var(--code-bg, #f9fafb);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+
+.analysis-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-h, #1a1a2e);
+}
+
+.analysis-card p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text, #555);
+  margin: 0;
 }
 
 .placeholder {

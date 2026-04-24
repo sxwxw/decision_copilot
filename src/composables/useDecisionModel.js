@@ -1,5 +1,6 @@
 import { reactive, computed, ref } from 'vue'
 import { createDecisionModel, simulateModel } from '../api/decision'
+import { Decimal } from 'decimal.js'
 
 // ── 适配器：将 LLM 输出的毛坯数据标准化为组件契约 ──
 let _idCounter = 0
@@ -15,13 +16,14 @@ function adaptTree(rawTree, rawPaths) {
   if (rawPaths && rawPaths.length) {
     for (const path of rawPaths) {
       if (!path.timeline) continue
-      let cumulative = 1.0
+      let cumulative = new Decimal(1)
       for (const evt of path.timeline) {
-        cumulative *= (evt.probability ?? 1.0)
+        cumulative = cumulative.mul(evt.probability ?? 1.0)
         const key = `step-${evt.year}:${evt.event}`
         // 取最大值（同一 event 可能出现在多条 path 中）
-        if (!eventProbMap[key] || eventProbMap[key] < cumulative) {
-          eventProbMap[key] = cumulative
+        const cVal = cumulative.toDecimalPlaces(2).toNumber()
+        if (!eventProbMap[key] || eventProbMap[key] < cVal) {
+          eventProbMap[key] = cVal
         }
       }
     }
@@ -84,24 +86,97 @@ const state = reactive({
 })
 
 export function useDecisionModel() {
+  /**
+   * 构建敏感度映射表：方案名 → { 维度名 → delta }
+   * 从 treeData.children（第一层方案节点）的 logic_payload.trade_offs 提取。
+   */
+  function buildSensitivityMap() {
+    const map = {}
+    const children = state.model?.treeData?.children || []
+    for (const child of children) {
+      const tradeOffs = child.logic_payload?.trade_offs || []
+      const dims = {}
+      for (const t of tradeOffs) {
+        dims[t.dimension] = t.delta
+      }
+      map[child.name] = dims
+    }
+    return map
+  }
+
+  /**
+   * 获取归因文本，基于 trade_offs 和当前权重。
+   * 按实际 impact = (paramValue/100 - 0.5) × delta × 2 排序，
+   * 找到对分数变化贡献最大的维度，生成一致的归因文案。
+   */
+  function getScoreAttribution(optionName) {
+    if (!state.model) return ''
+    const baseScore = state.model.scores?.[optionName] ?? 50
+    const adj = scores.value[optionName] ?? baseScore
+    const diff = Math.round((adj - baseScore) * 100) / 100
+    if (Math.abs(diff) <= 5) return ''
+
+    const sensitivityMap = buildSensitivityMap()
+    const dims = sensitivityMap[optionName] || {}
+
+    // 按实际 impact 排序：(paramValue/100 - 0.5) × delta × 2
+    let topDim = '', topDelta = 0, topParamValue = 50, topImpact = 0
+    for (const [dim, d] of Object.entries(dims)) {
+      if (state.model.weights[dim] === undefined) continue
+      const pv = state.paramValues[dim] ?? 50
+      const impact = (pv / 100 - 0.5) * d * 2
+      if (Math.abs(impact) > Math.abs(topImpact)) {
+        topImpact = impact
+        topDelta = d
+        topDim = dim
+        topParamValue = pv
+      }
+    }
+    if (!topDim) return `与基准差异较大（${diff > 0 ? '+' : ''}${diff}分）`
+
+    const userValues = topParamValue > 50
+    const isStrong = topDelta > 0
+    const sign = diff > 0 ? '+' : '-'
+    const absDiff = Math.abs(diff)
+
+    if (userValues && isStrong) {
+      return `基准 ${baseScore}，你重视「${topDim}」，该方案在此项突出，${sign}${absDiff}分`
+    }
+    if (userValues && !isStrong) {
+      return `基准 ${baseScore}，你重视「${topDim}」，该方案在此项不足，${sign}${absDiff}分`
+    }
+    if (!userValues && isStrong) {
+      return `基准 ${baseScore}，你淡化「${topDim}」，该方案此项优势未受关注，${sign}${absDiff}分`
+    }
+    return `基准 ${baseScore}，你降低「${topDim}」的短板影响，${sign}${absDiff}分`
+  }
+
   const scores = computed(() => {
     if (!state.model) return {}
     const baseScores = state.model.scores
     if (!state.paramValues || !Object.keys(state.paramValues).length) return baseScores
 
-    // Calculate overall preference shift from param adjustments (0-100 scale)
-    // vs default midpoint (50), applied as delta to base scores
-    let totalShift = 0
-    for (const [key, val] of Object.entries(state.paramValues)) {
-      if (state.model.weights[key] !== undefined) {
-        totalShift += (val - 50) * state.model.weights[key]
-      }
-    }
+    // 差异化敏感度公式
+    const sensitivityMap = buildSensitivityMap()
 
     const adjusted = {}
     for (const option of state.model.options) {
       const base = baseScores[option] ?? 50
-      adjusted[option] = Math.max(0, Math.min(100, Math.round(base + totalShift)))
+      const dims = sensitivityMap[option] || {}
+
+      let shift = new Decimal(0)
+      for (const [paramName, paramValue] of Object.entries(state.paramValues)) {
+        if (state.model.weights[paramName] !== undefined) {
+          const delta = dims[paramName] ?? 0
+          // 公式：(paramValue/100 - 0.5) × delta × 2
+          const pv = new Decimal(paramValue).div(100)
+          const half = new Decimal(0.5)
+          const d = new Decimal(delta)
+          shift = shift.add(pv.sub(half).mul(d).mul(2))
+        }
+      }
+
+      adjusted[option] = Math.max(0, Math.min(100, Math.round(base + shift.toNumber())))
     }
     return adjusted
   })
@@ -146,13 +221,13 @@ export function useDecisionModel() {
                       const prefOrder = { '保守': 0, '均衡': 1, '激进': 2 }
                       const userPref = prefOrder[userVal] ?? 1
                       const needPref = prefOrder[threshVal] ?? 1
-                      baseProb = userPref >= needPref ? baseProb * 1.1 : baseProb * 0.9
+                      baseProb = new Decimal(baseProb)
+                        .mul(userPref >= needPref ? '1.1' : '0.9')
+                        .toDecimalPlaces(2)
+                        .toNumber()
                     } else {
-                      if (userVal >= threshVal) {
-                        baseProb *= 1.15
-                      } else {
-                        baseProb *= 0.85
-                      }
+                      const factor = userVal >= threshVal ? '1.15' : '0.85'
+                      baseProb = new Decimal(baseProb).mul(factor).toDecimalPlaces(2).toNumber()
                     }
                   }
                 }
@@ -167,7 +242,9 @@ export function useDecisionModel() {
       const sum = rawProbs.reduce((a, b) => a + b, 0)
       const originalSum = groupPaths.reduce((a, p) => a + p.probability, 0)
       for (let i = 0; i < groupPaths.length; i++) {
-        const normalized = sum > 0 ? (rawProbs[i] / sum) * originalSum : 0
+        const normalized = sum > 0
+          ? new Decimal(rawProbs[i]).div(sum).mul(originalSum).toDecimalPlaces(2).toNumber()
+          : 0
         adjusted[groupPaths[i].id] = normalized
       }
     }
@@ -371,5 +448,6 @@ export function useDecisionModel() {
     resetCounterfactual,
     getScoreDiff,
     getAdjustedScore,
+    getScoreAttribution,
   }
 }

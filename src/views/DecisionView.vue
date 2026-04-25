@@ -102,7 +102,7 @@ const topWeightParam = computed(() => {
           <InputPanel :loading="state.loading" @submit="onSubmit" />
           <div class="left-divider"></div>
           <ParamPanel :model="state.model" :param-values="state.paramValues" @update-param="onUpdateParam"
-            @recalc="runSimulation" />
+            @recalc="runSimulation" @reset="onResetCounterfactual" />
         </div>
       </div>
 

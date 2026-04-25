@@ -9,7 +9,7 @@ const props = defineProps({
   paramValues: { type: Object, required: true },
 })
 
-const emit = defineEmits(['updateParam', 'recalc'])
+const emit = defineEmits(['updateParam', 'recalc', 'reset'])
 
 const componentMap = {
   slider: ParamSlider,
@@ -34,7 +34,10 @@ const hasDeviation = computed(() => {
 
 <template>
   <div class="param-panel">
-    <h3>参数调整</h3>
+    <div class="panel-header">
+      <h3>参数调整</h3>
+      <button v-if="model && hasDeviation" class="btn-reset" @click="emit('reset')">重置</button>
+    </div>
     <div v-if="model" class="params-container">
       <div class="params-list">
         <component v-for="v in model.variables" :is="componentMap[v.type]" :key="v.name" :config="v"
@@ -65,8 +68,29 @@ h3 {
   font-weight: 600;
   margin: 0;
   color: var(--text-h, #1a1a2e);
-  flex-shrink: 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 16px 16px 0;
+}
+
+.btn-reset {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover {
+  color: var(--accent, #3b82f6);
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .params-container {

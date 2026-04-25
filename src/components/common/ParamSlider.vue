@@ -2,7 +2,7 @@
  * @Author: wxw
  * @Date: 2026-04-21 20:55:39
  * @LastEditors: wxw
- * @LastEditTime: 2026-04-22 20:00:26
+ * @LastEditTime: 2026-04-25 13:17:22
  * @FilePath: \decision_copilot\src\components\common\ParamSlider.vue
 -->
 <script setup>
@@ -26,7 +26,8 @@ function onInput(val) {
       <span>{{ config.name }}</span>
       <span class="param-value">{{ value }}</span>
     </div>
-    <el-slider :model-value="value" :min="config.range?.[0] ?? 0" :max="config.range?.[1] ?? 100" :show-tooltip="false" @update:model-value="onInput" />
+    <el-slider :model-value="value" :min="config.range?.[0] ?? 0" :max="config.range?.[1] ?? 100" :show-tooltip="false"
+      @update:model-value="onInput" />
   </div>
 </template>
 
@@ -35,7 +36,7 @@ function onInput(val) {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  margin-bottom: 6px;
+  /* margin-bottom: 6px; */
   color: var(--text-h);
 }
 

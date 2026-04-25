@@ -50,14 +50,19 @@
 
 - 系统 SHALL 在用户点击决策树节点后展示该路径的详情
 - 路径详情 SHALL 包含：概率、量化指标（收入/成长/风险/幸福指数）、解释文本
+- 系统 SHALL 根据节点类型自动切换视图模式：叶节点展示路径溯源、中间节点展示分叉对比、根节点展示全局概览
+- 中间节点 SHALL 包含 LLM 生成的 `logic_payload` 元数据（risk_level、key_impact 等）
 
 ### 推荐结论
 
-- 系统 SHALL 在结果区底部展示推荐结论
-- 推荐结论 SHALL 包含综合评分排名和可解释分析文本
+- 系统 SHALL 在方案概览卡片下方展示 LLM 可解释分析文本（analysis）
+- 方案排名功能 SHALL 由方案概览卡片列表承载（按得分排序展示）
 
 ### 计算分工
 
 - 系统 SHALL 在后端（LLM）完成首次决策建模
 - 系统 SHALL 在前端完成用户调参后的本地权重重算（秒级响应）
-- 前端本地重算 SHALL 仅更新分数排序，不重新生成路径或解释
+- 前端本地重算 SHALL 采用差异化敏感度公式：`adjusted[方案] = clamp(baseScore[方案] + Σ((paramValue[维度]/100 - 0.5) × delta[方案][维度] × 2), 0, 100)`
+- 其中 delta 取自该方案节点 `logic_payload.trade_offs` 数组中对应维度的值
+- 前端本地重算 SHALL 可能导致方案间排序发生变化
+- 当存在 `snapshotWeights` 时，系统 SHALL 使用增量偏移公式计算：`shift = (currentValue - snapshotValue) / 100 × delta × 2`

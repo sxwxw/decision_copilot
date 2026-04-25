@@ -688,13 +688,113 @@ export function useDecisionModel() {
     return state.model.paths.find(p => p.name.includes(leafName)) || null
   }
 
+  /**
+   * 将 matchedPath 的 timeline 逻辑字段注入到 pathChain 节点中。
+   * 匹配策略：语义包含 + 索引保底。
+   * 注意：option 节点（idx=1）不注入 timeline，只使用自身 logic_payload。
+   * 索引映射：step 2 → timeline[0]，step 3 → timeline[1]（即 idx - 2）。
+   */
+  function enrichPathChain(chain, matchedPath) {
+    if (!matchedPath?.timeline?.length || !chain?.length) {
+      console.warn('[PathTrace] enrichPathChain: 无 matchedPath 或 timeline，跳过注入')
+      return chain
+    }
+
+    console.log('[PathTrace] enrichPathChain: 匹配 path', matchedPath.id, ', timeline 数量:', matchedPath.timeline.length)
+
+    const usedIndices = new Set()
+
+    return chain.map((node, idx) => {
+      if (idx === 0) return node
+
+      // option 节点（idx=1）不注入 timeline，只使用自身 logic_payload
+      if (idx === 1) {
+        console.log(`[PathTrace] Step ${node.step} "${node.name}" → option 节点，跳过 timeline 注入`)
+        return {
+          ...node,
+          displayValue: node.score,
+          logic: null,
+          meta: node.logic_payload ? {
+            key_impact: node.logic_payload.key_impact,
+            opportunity_cost: node.logic_payload.opportunity_cost,
+            trade_offs: node.logic_payload.trade_offs || [],
+          } : null,
+        }
+      }
+
+      // outcome 节点：按名称匹配 timeline
+      let evt = null
+      let matchMethod = ''
+
+      // 1. 精确匹配
+      evt = matchedPath.timeline.find(e => (e.event || '') === node.name)
+      if (evt) {
+        matchMethod = 'exact'
+      } else {
+        // 2. 语义包含匹配
+        evt = matchedPath.timeline.find(e => {
+          const en = e.event || ''
+          return node.name.includes(en) || en.includes(node.name)
+        })
+        if (evt) {
+          matchMethod = 'semantic'
+        } else {
+          // 3. 索引回退：idx - 2（step 2 → timeline[0]），且跳过已使用的
+          const fallbackIdx = idx - 2
+          if (fallbackIdx >= 0 && fallbackIdx < matchedPath.timeline.length && !usedIndices.has(fallbackIdx)) {
+            evt = matchedPath.timeline[fallbackIdx]
+            matchMethod = 'fallback'
+          }
+        }
+      }
+
+      if (evt) {
+        const tIdx = matchedPath.timeline.indexOf(evt)
+        usedIndices.add(tIdx)
+        console.log(`[PathTrace] Step ${node.step} "${node.name}" → matched event: "${evt.event}" (方式: ${matchMethod})`)
+      } else {
+        console.warn(`[PathTrace] Step ${node.step} "${node.name}" → 无 timeline 匹配`)
+      }
+
+      return {
+        ...node,
+        displayValue: node.score,
+        logic: evt ? {
+          impact: evt.impact,
+          threshold: evt.threshold,
+          probability: evt.probability,
+        } : null,
+        meta: node.logic_payload ? {
+          key_impact: node.logic_payload.key_impact,
+          opportunity_cost: node.logic_payload.opportunity_cost,
+          trade_offs: node.logic_payload.trade_offs || [],
+        } : null,
+      }
+    }).map((enriched, idx) => {
+      // 打印每个节点的 threshold 详情
+      if (enriched.logic?.threshold) {
+        console.log(`[enrichPathChain] idx=${idx} "${enriched.name}" logic.threshold:`, enriched.logic.threshold)
+      } else {
+        console.log(`[enrichPathChain] idx=${idx} "${enriched.name}" logic: null (无 threshold)`)
+      }
+      return enriched
+    })
+  }
+
   function selectNode(node) {
     const pathChain = buildPathChain(node?.id)
+    console.log('[selectNode] 原始 pathChain:', pathChain.map(s => ({ name: s.name, step: s.step, threshold: s.logic?.threshold, logic_payload: s.logic_payload })))
+
     const matchedPath = matchPathByChain(pathChain)
+    console.log('[selectNode] matchedPath:', matchedPath?.id, 'timeline:', matchedPath?.timeline)
+
+    const enrichedChain = enrichPathChain(pathChain, matchedPath)
+    console.log('[selectNode] 注入后 enrichedChain:', enrichedChain.map(s => ({ name: s.name, step: s.step, logic: s.logic, meta: s.meta })))
+
     const viewMode = getNodeViewMode(node, pathChain)
     state.selectedNode = node ? {
       ...node,
-      pathChain,
+      pathChain: enrichedChain,
       matchedPath,
       viewMode,
     } : null

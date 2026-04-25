@@ -5,7 +5,7 @@ import ParamSlider from '../common/ParamSlider.vue'
 import ParamSelect from '../common/ParamSelect.vue'
 
 const props = defineProps({
-  model: { type: Object, required: true },
+  model: { type: Object, default: null },
   paramValues: { type: Object, required: true },
 })
 
@@ -35,16 +35,17 @@ const hasDeviation = computed(() => {
 <template>
   <div class="param-panel">
     <h3>参数调整</h3>
-    <div v-if="model" class="params-list">
-      <component v-for="v in model.variables" :is="componentMap[v.type]" :key="v.name" :config="v"
-        :value="paramValues[v.name]" @update="onUpdate(v.name, $event)" />
+    <div v-if="model" class="params-container">
+      <div class="params-list">
+        <component v-for="v in model.variables" :is="componentMap[v.type]" :key="v.name" :config="v"
+          :value="paramValues[v.name]" @update="onUpdate(v.name, $event)" />
+      </div>
     </div>
     <div v-else class="param-placeholder">
       <p>提交决策问题后，参数面板将自动生成</p>
     </div>
     <div v-if="model" class="simulate-wrapper">
-      <el-button type="primary" :plain="!hasDeviation"
-        :class="['btn-recalc', { 'btn-breathe': hasDeviation }]"
+      <el-button type="primary" :plain="!hasDeviation" :class="['btn-recalc', { 'btn-breathe': hasDeviation }]"
         @click="emit('recalc')">
         深度模拟
       </el-button>
@@ -54,22 +55,48 @@ const hasDeviation = computed(() => {
 
 <style scoped>
 .param-panel {
-  padding: 16px;
-  height: 100%;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 h3 {
   font-size: 15px;
   font-weight: 600;
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--text-h, #1a1a2e);
+  flex-shrink: 0;
+  padding: 16px 16px 0;
+}
+
+.params-container {
+  width: 100%;
+  height: 300px;
+  overflow-y: auto;
+  padding: 0 16px;
+  scrollbar-gutter: stable;
+}
+
+.params-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.params-container::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.params-container:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .params-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
 .param-placeholder {
@@ -78,14 +105,15 @@ h3 {
   padding: 20px 0;
 }
 
-.btn-recalc {
-  margin-top: 16px;
-  width: 100%;
-  transition: all 0.3s ease;
+.simulate-wrapper {
+  flex-shrink: 0;
+  padding: 8px 16px 0;
+  border-top: 1px solid var(--border, #e5e7eb);
 }
 
-.simulate-wrapper {
-  position: relative;
+.btn-recalc {
+  width: 100%;
+  transition: all 0.3s ease;
 }
 
 .btn-breathe {
@@ -97,10 +125,13 @@ h3 {
 }
 
 @keyframes breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 4px rgba(64, 158, 255, 0.2);
     transform: scale(1);
   }
+
   50% {
     box-shadow: 0 0 12px rgba(64, 158, 255, 0.5);
     transform: scale(1.02);

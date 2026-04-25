@@ -136,6 +136,10 @@ const topWeightParam = computed(() => {
               :base-scores="state.model?.scores ?? {}"
               :recommendation="state.model?.recommendation ?? null"
               :adjusted-prob-map="state.adjustedProbabilities"
+              :param-values="state.paramValues"
+              :weights="state.model?.weights ?? {}"
+              :user-input="state.savedInput"
+              :all-options="state.model?.treeData?.children ?? []"
             />
           </div>
         </div>
@@ -173,6 +177,14 @@ const topWeightParam = computed(() => {
   min-width: 260px;
   max-width: 600px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }

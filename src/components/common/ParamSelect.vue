@@ -1,3 +1,10 @@
+<!--
+ * @Author: wxw
+ * @Date: 2026-04-21 20:56:06
+ * @LastEditors: wxw
+ * @LastEditTime: 2026-04-25 13:17:17
+ * @FilePath: \decision_copilot\src\components\common\ParamSelect.vue
+-->
 <script setup>
 import { ElSelect, ElOption } from 'element-plus'
 
@@ -16,17 +23,8 @@ function onInput(val) {
 <template>
   <div class="param-select">
     <div class="param-label">{{ config.name }}</div>
-    <el-select
-      :model-value="value"
-      :placeholder="'请选择'"
-      @change="onInput"
-    >
-      <el-option
-        v-for="opt in config.options"
-        :key="opt"
-        :label="opt"
-        :value="opt"
-      />
+    <el-select :model-value="value" :placeholder="'请选择'" @change="onInput">
+      <el-option v-for="opt in config.options" :key="opt" :label="opt" :value="opt" />
     </el-select>
   </div>
 </template>
@@ -35,6 +33,7 @@ function onInput(val) {
 .param-select {
   padding: 8px 0;
 }
+
 .param-label {
   font-size: 13px;
   margin-bottom: 4px;

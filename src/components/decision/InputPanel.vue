@@ -58,4 +58,18 @@ h3 {
   font-family: inherit;
   resize: none;
 }
+
+:deep(.el-textarea__inner::-webkit-scrollbar) {
+  width: 6px;
+}
+
+:deep(.el-textarea__inner::-webkit-scrollbar-thumb) {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+:deep(.el-textarea__inner:hover::-webkit-scrollbar-thumb) {
+  background: rgba(0, 0, 0, 0.2);
+}
 </style>

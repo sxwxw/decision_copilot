@@ -17,11 +17,8 @@ function sanitizeModel(rawData) {
   d.options = Array.isArray(d.options) ? d.options : []
   console.log('[Sanitizer] options:', JSON.stringify(d.options))
 
-  // 1b. variables 从 weights key 自动构造
-  // LLM 不再需要返回 variables 数组，前端根据 weights key 自行补全
-  if (Array.isArray(rawData.variables) && rawData.variables.length > 0) {
-    d.variables = rawData.variables
-  } else if (d.weights && typeof d.weights === 'object') {
+  // 1b. variables 始终从 weights key 构造，忽略 LLM 返回的（可能不一致）
+  if (d.weights && typeof d.weights === 'object') {
     const varKeys = Object.keys(d.weights)
     const RISK_PREFERENCE = '风险偏好'
     const otherKeys = varKeys.filter(k => k !== RISK_PREFERENCE)

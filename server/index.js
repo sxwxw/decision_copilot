@@ -4,7 +4,6 @@ import cors from 'cors'
 import decisionRouter from './routes/decision.js'
 
 const app = express()
-const PORT = process.env.PORT || 3000
 
 app.use(cors())
 app.use(express.json())
@@ -15,6 +14,12 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
-app.listen(PORT, () => {
-  console.log(`Express server running on :${PORT}`)
-})
+// Only start the server when run directly (not when imported as a module)
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3000
+  app.listen(PORT, () => {
+    console.log(`Express server running on :${PORT}`)
+  })
+}
+
+export default app

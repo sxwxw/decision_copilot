@@ -17,8 +17,21 @@ function sanitizeModel(rawData) {
   d.options = Array.isArray(d.options) ? d.options : []
   console.log('[Sanitizer] options:', JSON.stringify(d.options))
 
-  // 1b. variables 补全
-  d.variables = Array.isArray(d.variables) ? d.variables : []
+  // 1b. variables 从 weights key 自动构造
+  // LLM 不再需要返回 variables 数组，前端根据 weights key 自行补全
+  if (Array.isArray(rawData.variables) && rawData.variables.length > 0) {
+    d.variables = rawData.variables
+  } else if (d.weights && typeof d.weights === 'object') {
+    const varKeys = Object.keys(d.weights)
+    const RISK_PREFERENCE = '风险偏好'
+    const otherKeys = varKeys.filter(k => k !== RISK_PREFERENCE)
+    d.variables = [
+      ...otherKeys.map(name => ({ name, type: 'slider', range: [0, 100] })),
+      { name: RISK_PREFERENCE, type: 'select', options: ['保守', '均衡', '激进'] }
+    ]
+  } else {
+    d.variables = []
+  }
 
   // 1c. weights key ⊆ variables.name
   const validVarNames = new Set(d.variables.map(v => v.name))

@@ -15,7 +15,7 @@ export const DECISION_MODEL_PROMPT = `你是一个资深的决策科学专家。
 - treeData：Root -> Option -> Outcome(L1) -> Consequence(L2)。节点名严控4-6字。中间节点必须有logic_payload，叶子节点禁止
 - paths：每个Option至少2条路径（乐观/悲观），含probability、timeline、impact（与variables一一对应）
 - scores：各选项基准分(0-100)
-- recommendation：rank排序+综合分析
+- recommendation：综合分析
 ### 约束：仅返回纯净JSON，禁止Markdown标记、开场白、结尾文字。paths.impact的key必须与variables.name严格对应。
 **⚠️ treeData.children[i].name 必须与 options 中的选项名称逐字完全一致，不得添加"框架""方案"等后缀。**
 返回JSON结构：
@@ -72,10 +72,6 @@ export const DECISION_MODEL_PROMPT = `你是一个资深的决策科学专家。
       "id": "path-1",
       "name": "<选项> → <事件1> → <事件2>",
       "probability": <0-1>,
-      "income": <0-100>,
-      "growth": <0-100>,
-      "risk": <0-100>,
-      "happiness": <0-100>,
       "explanation": "<路径说明>",
       "timeline": [
         { "event": "<事件>", "probability": <0-1>, "description": "<描述>", "impact": { "<变量>": <值> }, "threshold": { "<变量>": <0-100> } }
@@ -83,7 +79,6 @@ export const DECISION_MODEL_PROMPT = `你是一个资深的决策科学专家。
     }
   ],
   "recommendation": {
-    "rank": [{ "option": "<选项>", "score": <0-100>, "summary": "<理由>" }],
     "analysis": "<综合分析>"
   },
   "scores": { "<选项1>": <分数>, "<选项2>": <分数> }
@@ -167,10 +162,6 @@ export const DECISION_MODEL_DEEP_PROMPT = `你是一个资深的决策科学专�
       "id": "path-1",
       "name": "<选项> → <事件1> → <事件2>",
       "probability": <0-1>,
-      "income": <0-100>,
-      "growth": <0-100>,
-      "risk": <0-100>,
-      "happiness": <0-100>,
       "explanation": "<路径说明>",
       "timeline": [
         { "event": "<事件名>", "probability": <0-1>, "description": "<详细描述>", "impact": { "<变量名>": <影响值> }, "threshold": { "<相关变量名>": <阈值0-100> } }
@@ -178,9 +169,6 @@ export const DECISION_MODEL_DEEP_PROMPT = `你是一个资深的决策科学专�
     }
   ],
   "recommendation": {
-    "rank": [
-      { "option": "<选项名>", "score": <0-100>, "summary": "<推荐理由>" }
-    ],
     "analysis": "<综合分析>"
   },
   "scores": { "<选项1>": <分数>, "<选项2>": <分数> }
@@ -194,22 +182,18 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
 ### 输入
 - 用户原始问题：{userInput}
 - 当前参数值：{paramValues}
-- 现有模型参考：{currentModel}
+
+### 结构约束（必须遵守，不得变更）
+- 选项列表：{options}
+- 权重分配：{weights}
 
 ### 严格约束
-1. **选项锁定**：你必须保持 options 中的选项完全一致，不得增删改名。
-2. **维度锁定**：variables 和 weights 的 key 必须与现有模型完全一致。
-3. **trade_offs 约束**：trade_offs 中的 dimension 必须是上述 variables 中定义的变量名。**所有出现在 weights 中的维度必须在至少一个选项的 trade_offs 中出现。**
-4. **结构一致**：treeData 保持 Root -> Option -> Outcome(L1) -> Consequence(L2) 的层级深度。
-5. **逻辑重构**：根据当前参数环境，重新评估每个选项的因果路径。路径可能变化，节点名可能变化，但选项名不变。
-6. **对比分析**：recommendation 中必须包含 delta_analysis 字段，用一句话说明与初始模型相比的逻辑变化原因。
-7. **输出格式**：禁止 Markdown 标记，禁止任何开场白或结尾文字。仅返回纯净、压缩后的单个 JSON 对象。
-
-返回的 JSON 必须包含完整结构：
+1. **输出格式**：仅返回纯净 JSON，禁止 Markdown、开场白或结尾文字。
+2. **trade_offs 完整性**：所有出现在 weights 中的维度，必须在至少一个选项的 trade_offs 中出现，且 dimension 必须是 paramValues 的 key。
+3. **逻辑推演**：根据当前参数重新评估因果路径和节点名，但选项名和 weights 不得变更。
 {
-  "options": ["<与现有模型完全一致>"],
-  "variables": [<与现有模型完全一致>],
-  "weights": { <与现有模型完全一致> },
+  "options": ["<与输入选项列表完全一致>"],
+  "weights": { <与输入权重分配完全一致，key即变量名> },
   "treeData": {
     "name": "<根节点4-6字>",
     "step": 0, "value": 100,
@@ -236,7 +220,6 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
   "paths": [
     {
       "id": "<path-1等唯一标识>", "name": "<选项> → <事件1> → <事件2>", "probability": <0-1>,
-      "income": <0-100>, "growth": <0-100>, "risk": <0-100>, "happiness": <0-100>,
       "explanation": "<路径说明>",
       "timeline": [
         { "event": "<事件名>", "probability": <0-1>, "description": "<详细描述>",
@@ -245,7 +228,6 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
     }
   ],
   "recommendation": {
-    "rank": [{ "option": "<选项名>", "score": <0-100>, "summary": "<推荐理由>" }],
     "analysis": "<综合分析>",
     "delta_analysis": "<一句话说明与初始模型相比的逻辑变化>"
   },

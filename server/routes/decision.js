@@ -62,7 +62,8 @@ router.post('/model', async (req, res) => {
       return res.json(result)
     } catch (err) {
       console.error('LLM call failed:', err.message)
-      // Fallback to mock
+      // Return error info for debugging
+      return res.status(500).json({ error: 'LLM call failed', detail: err.message })
     }
   }
 
@@ -89,7 +90,7 @@ router.post('/simulate', async (req, res) => {
       return res.json(result)
     } catch (err) {
       console.error('LLM simulation failed:', err.message)
-      // Fallback to mock
+      return res.status(500).json({ error: 'LLM simulation failed', detail: err.message })
     }
   }
 
@@ -139,6 +140,7 @@ router.post('/refine', async (req, res) => {
       return res.json(result)
     } catch (err) {
       console.error('LLM refine failed:', err.message)
+      return res.status(500).json({ error: 'LLM refine failed', detail: err.message })
     }
   }
 

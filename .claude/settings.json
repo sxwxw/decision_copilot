@@ -55,12 +55,21 @@
       "Bash(cd e:\\\\\\\\codeLife\\\\\\\\decision_copilot)",
       "mcp__chrome-devtools__list_network_requests",
       "Bash(openspec-cn new *)",
-      "Bash(openspec-cn list *)"
+      "Bash(openspec-cn list *)",
+      "Bash(git pull *)",
+      "Bash(git merge *)",
+      "Bash(git remote *)",
+      "Bash(ssh -T git@gitlab.longshine.com)",
+      "Bash(ssh -i ~/.ssh/id_ed25519_gitlab -T git@gitlab.longshine.com)",
+      "Bash(git fetch *)"
     ],
     "deny": [
       "Bash(git push *)",
       "Bash(rm -rf *)",
       "Bash(npm publish)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\xiangwenw\\.ssh"
     ]
   }
 }

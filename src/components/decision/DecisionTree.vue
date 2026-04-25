@@ -242,6 +242,21 @@ watch(
   { deep: true }
 )
 
+// 独立监听概率映射，只更新标签文本，不重绘整棵树
+watch(
+  () => props.adjustedProbMap,
+  () => {
+    if (!gLabels) return
+    gLabels.selectAll('.d3-link-label')
+      .text(d => {
+        const adjusted = resolveAdjustedProb(d.target)
+        const p = adjusted != null ? adjusted : d.target.data.probability
+        return p != null ? `P=${(p * 100).toFixed(0)}%` : ''
+      })
+  },
+  { deep: true }
+)
+
 onMounted(() => {
   if (props.treeData) renderTree()
 })

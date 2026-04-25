@@ -1,6 +1,265 @@
 import { reactive, computed, ref } from 'vue'
-import { createDecisionModel, simulateModel } from '../api/decision'
+import { createDecisionModel, simulateModel, refineModel } from '../api/decision'
 import { Decimal } from 'decimal.js'
+
+// ── 数据清洗器：结构格式化 + 语义索引 ──
+
+function sanitizeModel(rawData) {
+  if (!rawData || typeof rawData !== 'object') return null
+
+  const d = { ...rawData }
+
+  console.group('[Sanitizer] ===== 开始清洗 =====')
+
+  // ── Step 1: 结构格式化 ──
+
+  // 1a. options 确保为数组
+  d.options = Array.isArray(d.options) ? d.options : []
+  console.log('[Sanitizer] options:', JSON.stringify(d.options))
+
+  // 1b. variables 补全
+  d.variables = Array.isArray(d.variables) ? d.variables : []
+
+  // 1c. weights key ⊆ variables.name
+  const validVarNames = new Set(d.variables.map(v => v.name))
+  console.log('[Sanitizer] 合法变量名:', [...validVarNames])
+  const weightsBefore = d.weights
+  d.weights = d.weights && typeof d.weights === 'object'
+    ? Object.fromEntries(Object.entries(d.weights).filter(([k]) => validVarNames.has(k)))
+    : {}
+  if (JSON.stringify(weightsBefore) !== JSON.stringify(d.weights)) {
+    console.warn('[Sanitizer] weights 被过滤:', { before: weightsBefore, after: d.weights })
+  }
+
+  // 1d. scores key ⊆ options
+  const validOptions = new Set(d.options)
+  const scoresBefore = d.scores
+  d.scores = d.scores && typeof d.scores === 'object'
+    ? Object.fromEntries(Object.entries(d.scores).filter(([k]) => validOptions.has(k)))
+    : {}
+  for (const opt of d.options) {
+    if (d.scores[opt] === undefined) d.scores[opt] = 50
+  }
+  if (JSON.stringify(scoresBefore) !== JSON.stringify(d.scores)) {
+    console.warn('[Sanitizer] scores 被修正:', { before: scoresBefore, after: d.scores })
+  }
+
+  // 1e. trade_offs.dimension ⊆ variables.name（递归遍历 treeData）
+  let tradeOffsRemoved = 0
+  function sanitizeTradeOffs(node) {
+    if (node.logic_payload?.trade_offs) {
+      const before = node.logic_payload.trade_offs.length
+      node.logic_payload.trade_offs = node.logic_payload.trade_offs
+        .filter(t => validVarNames.has(t.dimension))
+      const after = node.logic_payload.trade_offs.length
+      if (after < before) {
+        tradeOffsRemoved += before - after
+        console.warn(`[Sanitizer] 节点 "${node.name}" trade_offs 被移除 ${before - after} 项:`, node.logic_payload.trade_offs)
+      }
+    }
+    if (node.children) {
+      for (const child of node.children) sanitizeTradeOffs(child)
+    }
+  }
+  if (d.treeData) sanitizeTradeOffs(d.treeData)
+  if (tradeOffsRemoved > 0) console.warn(`[Sanitizer] 共移除 ${tradeOffsRemoved} 个非法 trade_offs`)
+
+  // 1g. 加权推导缺失维度的 trade_offs
+  if (d.treeData && Array.isArray(d.paths)) {
+    deriveTradeoffs(d.treeData, d.paths)
+  }
+
+  // 1f. paths[].impact.key ⊆ variables.name
+  if (Array.isArray(d.paths)) {
+    for (const path of d.paths) {
+      if (path.timeline) {
+        for (const evt of path.timeline) {
+          if (evt.impact) {
+            const before = Object.keys(evt.impact)
+            evt.impact = Object.fromEntries(Object.entries(evt.impact).filter(([k]) => validVarNames.has(k)))
+            const after = Object.keys(evt.impact)
+            if (before.length !== after.length) {
+              console.warn(`[Sanitizer] path "${path.id}" event "${evt.event}" impact 被过滤:`, { before, after })
+            }
+          }
+          if (evt.threshold) {
+            evt.threshold = Object.fromEntries(Object.entries(evt.threshold).filter(([k]) => validVarNames.has(k)))
+          }
+        }
+      }
+    }
+  }
+
+  /**
+ * 从缺失的维度推导 option 级 trade_offs。
+ * 如果某维度有权重但不在 option trade_offs 中，
+ * 从其子节点（L1）的 trade_offs 中按路径概率加权平均推导。
+ */
+function deriveTradeoffs(treeData, paths) {
+  if (!treeData?.children || !paths?.length) return
+
+  // 构建 path 名称到 L1 事件名的映射：{optionName: {l1EventName: pathProbability}}
+  const optionL1Probs = {}
+  for (const path of paths) {
+    const segments = path.name.split('→').map(s => s.trim()).filter(Boolean)
+    if (segments.length < 2) continue
+    const optionName = segments[0]
+    const l1Event = segments[1]
+    if (!optionL1Probs[optionName]) optionL1Probs[optionName] = {}
+    optionL1Probs[optionName][l1Event] = path.probability ?? 0
+  }
+
+  for (const optionNode of treeData.children) {
+    if (!optionNode.logic_payload?.trade_offs) continue
+    const existingDims = new Set(optionNode.logic_payload.trade_offs.map(t => t.dimension))
+    const l1Probs = optionL1Probs[optionNode.name] || {}
+
+    // 遍历 L1 子节点，收集它们 trade_offs 中所有出现过的维度
+    const l1Children = optionNode.children || []
+    for (const l1 of l1Children) {
+      if (!l1.logic_payload?.trade_offs) continue
+      for (const t of l1.logic_payload.trade_offs) {
+        if (existingDims.has(t.dimension)) continue // 已有，跳过
+
+        // 该维度在 option 级缺失，推导
+        const dimName = t.dimension
+        let weightedSum = 0
+        let probTotal = 0
+
+        // 遍历所有 L1 子节点，收集该维度的 delta
+        for (const child of l1Children) {
+          const childTradeOffs = child.logic_payload?.trade_offs || []
+          const childEntry = childTradeOffs.find(c => c.dimension === dimName)
+          if (!childEntry) continue
+
+          // 用 path.name 中对应 L1 事件匹配概率
+          const prob = l1Probs[child.name]
+          if (prob != null) {
+            weightedSum += childEntry.delta * prob
+            probTotal += prob
+          }
+        }
+
+        // 推导结果
+        const derivedDelta = probTotal > 0
+          ? Math.round((weightedSum / probTotal) * 100) / 100
+          : 0
+
+        optionNode.logic_payload.trade_offs.push({
+          dimension: dimName,
+          delta: derivedDelta,
+        })
+        existingDims.add(dimName)
+
+        console.log(`[Sanitizer] deriveTradeoffs: 为 "${optionNode.name}" 补全维度 "${dimName}", delta=${derivedDelta}`)
+      }
+    }
+  }
+}
+
+// ── Step 2: 语义索引（构建 _pathRef） ──
+  console.log('[Sanitizer] 开始语义索引...')
+  if (d.treeData && Array.isArray(d.paths)) {
+    buildPathRefs(d.treeData, d.paths, d.options)
+
+    // 打印索引结果
+    const refResult = {}
+    function collectRefs(node, path) {
+      if (node._pathRef) refResult[path + node.name] = node._pathRef
+      if (node.children) {
+        for (const child of node.children) collectRefs(child, path + node.name + ' → ')
+      }
+    }
+    collectRefs(d.treeData, '')
+    console.log('[Sanitizer] _pathRef 注入结果:', refResult)
+  }
+
+  console.groupEnd()
+  return d
+}
+
+/**
+ * 为 treeData 的每个节点注入 _pathRef 数组
+ * 匹配策略：精确匹配 → 双向包含 → 位置回退
+ */
+function buildPathRefs(treeData, paths, options) {
+  // 构建 optionName → 子节点扁平列表 的映射
+  const optionNodes = {}
+  for (const optChild of treeData.children || []) {
+    optionNodes[optChild.name] = flattenTree(optChild, 1)
+  }
+
+  for (const path of paths) {
+    const events = extractEvents(path)
+    if (!events.length) continue
+
+    // 第一段：匹配 option
+    const optionName = events[0]
+    const matchedOption = treeData.children?.find(c => c.name === optionName)
+    if (!matchedOption) {
+      console.warn(`[Sanitizer] 无法匹配路径选项 "${optionName}"，跳过 path ${path.id}`)
+      continue
+    }
+
+    // 给 option 节点注入 _pathRef
+    if (!matchedOption._pathRef) matchedOption._pathRef = []
+    matchedOption._pathRef.push(path.id)
+
+    // 后续段：匹配子节点
+    const childNodes = optionNodes[matchedOption.name] || []
+    for (let i = 1; i < events.length; i++) {
+      const eventName = events[i]
+      const matched = matchNode(childNodes, eventName, i - 1)
+      if (matched) {
+        if (!matched._pathRef) matched._pathRef = []
+        matched._pathRef.push(path.id)
+      }
+    }
+  }
+}
+
+/** 扁平化树为节点数组（含层级索引） */
+function flattenTree(node, depth) {
+  const result = []
+  if (node.children) {
+    node.children.forEach((child, idx) => {
+      child._depth = depth
+      child._index = idx
+      result.push(child)
+      result.push(...flattenTree(child, depth + 1))
+    })
+  }
+  return result
+}
+
+/** 从 path 中提取事件名链条 */
+function extractEvents(path) {
+  // 优先用 path.name 按 → 分割（与 treeData 节点名一致）
+  if (path.name) {
+    return path.name.split('→').map(s => s.trim()).filter(Boolean)
+  }
+  // 回退：用 timeline 事件名
+  if (path.timeline && path.timeline.length) {
+    return path.timeline.map(e => e.event).filter(Boolean)
+  }
+  return []
+}
+
+/** 匹配策略：精确 → 包含 → 位置回退 */
+function matchNode(nodeList, eventName, fallbackIndex) {
+  // 1. 精确匹配
+  const exact = nodeList.find(n => n.name === eventName)
+  if (exact) return exact
+
+  // 2. 双向包含
+  const partial = nodeList.find(n =>
+    n.name.includes(eventName) || eventName.includes(n.name))
+  if (partial) return partial
+
+  // 3. 位置回退
+  console.warn(`[Sanitizer] 无法匹配路径事件 "${eventName}" 到树节点，回退至位置索引 [${fallbackIndex}]`)
+  return nodeList[fallbackIndex] || null
+}
 
 // ── 适配器：将 LLM 输出的毛坯数据标准化为组件契约 ──
 let _idCounter = 0
@@ -11,7 +270,7 @@ function genId() {
 function adaptTree(rawTree, rawPaths) {
   _idCounter = 0
 
-  // 1) 从 paths 中构建 event→probability 映射，按路径层级累积
+  // 1) 构建 event→probability 映射（保留：从 paths 计算每个事件的累积概率）
   const eventProbMap = {}
   if (rawPaths && rawPaths.length) {
     for (const path of rawPaths) {
@@ -19,7 +278,6 @@ function adaptTree(rawTree, rawPaths) {
       let cumulative = new Decimal(1)
       for (const evt of path.timeline) {
         cumulative = cumulative.mul(evt.probability ?? 1.0)
-        // 用事件名做 key，不再依赖 year
         if (evt.event) {
           const cVal = cumulative.toDecimalPlaces(2).toNumber()
           if (!eventProbMap[evt.event] || eventProbMap[evt.event] < cVal) {
@@ -30,18 +288,21 @@ function adaptTree(rawTree, rawPaths) {
     }
   }
 
-  // 2) 递归遍历树，标准化字段并注入 probability + pathIds
+  // 2) 递归遍历树，标准化字段
   function adaptNode(node, depth, optionName) {
     const step = depth
     const rawName = node.name ?? ''
     const cleanName = rawName.replace(/^第[0-9]+年[：:]\s*/, '')
 
-    // 从 eventProbMap 按节点名查找概率
+    // 概率：优先从 eventProbMap 按节点名查找，回退到 node.value / 100
     let probability = eventProbMap[cleanName]
     if (probability === undefined) {
       probability = (node.value ?? 50) / 100
     }
     probability = Math.max(0, Math.min(1, parseFloat(probability.toFixed(2))))
+
+    // _pathRef → pathIds（语义索引的结果）
+    const pathIds = Array.isArray(node._pathRef) ? [...node._pathRef] : []
 
     const adapted = {
       id: genId(),
@@ -52,7 +313,7 @@ function adaptTree(rawTree, rawPaths) {
       probability,
       isDashed: step >= 2,
       children: [],
-      pathIds: [],
+      pathIds,
     }
 
     if (node.logic_payload) {
@@ -70,37 +331,9 @@ function adaptTree(rawTree, rawPaths) {
 
   const adapted = adaptNode(rawTree, 0, null)
 
-  // 3) 为每个节点注入经过它的 pathIds
   // 根节点始终包含所有 pathId
   if (rawPaths && rawPaths.length) {
     adapted.pathIds = rawPaths.map(p => p.id)
-
-    // 对每个 path，按 timeline 事件名顺序在树中递归匹配，注入 pathId
-    for (const path of rawPaths) {
-      if (!path.timeline || !path.timeline.length) continue
-
-      const events = path.timeline.map(evt =>
-        evt.event?.replace(/^第[0-9]+年[：:]\s*/, '') || evt.event)
-
-      function matchPath(treeNode, eventIndex) {
-        if (eventIndex >= events.length) return
-        const target = events[eventIndex]
-        if (treeNode.name === target) {
-          treeNode.pathIds.push(path.id)
-          for (const child of (treeNode.children || [])) {
-            matchPath(child, eventIndex + 1)
-          }
-        } else {
-          for (const child of (treeNode.children || [])) {
-            matchPath(child, eventIndex)
-          }
-        }
-      }
-
-      for (const child of (adapted.children || [])) {
-        matchPath(child, 0)
-      }
-    }
   }
 
   return adapted
@@ -113,6 +346,7 @@ const state = reactive({
   model: null,       // { options, variables, weights, treeData, paths, recommendation, scores }
   selectedNode: null,
   paramValues: {},   // current param values for recalc
+  snapshotWeights: null, // snapshot of param values at time of last refine (for incremental scoring)
   adjustedProbabilities: {}, // pathId -> adjusted probability
 })
 
@@ -150,12 +384,17 @@ export function useDecisionModel() {
     const sensitivityMap = buildSensitivityMap()
     const dims = sensitivityMap[optionName] || {}
 
-    // 按实际 impact 排序：(paramValue/100 - 0.5) × delta × 2
+    // 按实际 impact 排序：有快照时用 (paramValue - snapshotValue) / 100 × delta × 2，否则用 (paramValue/100 - 0.5) × delta × 2
     let topDim = '', topDelta = 0, topParamValue = 50, topImpact = 0
     for (const [dim, d] of Object.entries(dims)) {
       if (state.model.weights[dim] === undefined) continue
       const pv = state.paramValues[dim] ?? 50
-      const impact = (pv / 100 - 0.5) * d * 2
+      let impact
+      if (state.snapshotWeights && state.snapshotWeights[dim] !== undefined) {
+        impact = (pv - state.snapshotWeights[dim]) / 100 * d * 2
+      } else {
+        impact = (pv / 100 - 0.5) * d * 2
+      }
       if (Math.abs(impact) > Math.abs(topImpact)) {
         topImpact = impact
         topDelta = d
@@ -199,11 +438,17 @@ export function useDecisionModel() {
       for (const [paramName, paramValue] of Object.entries(state.paramValues)) {
         if (state.model.weights[paramName] !== undefined && typeof paramValue === 'number') {
           const delta = dims[paramName] ?? 0
-          // 公式：(paramValue/100 - 0.5) × delta × 2
-          const pv = new Decimal(paramValue).div(100)
-          const half = new Decimal(0.5)
-          const d = new Decimal(delta)
-          shift = shift.add(pv.sub(half).mul(d).mul(2))
+          // 公式：有快照时用增量 (currentValue - snapshotValue) / 100 × delta × 2
+          // 否则用默认基准 (paramValue/100 - 0.5) × delta × 2
+          let offset
+          if (state.snapshotWeights && state.snapshotWeights[paramName] !== undefined) {
+            offset = new Decimal(paramValue).sub(state.snapshotWeights[paramName]).div(100).mul(delta).mul(2)
+          } else {
+            const pv = new Decimal(paramValue).div(100)
+            const half = new Decimal(0.5)
+            offset = pv.sub(half).mul(delta).mul(2)
+          }
+          shift = shift.add(offset)
         }
       }
 
@@ -309,6 +554,7 @@ export function useDecisionModel() {
   function resetCounterfactual() {
     counterfactualActive.value = false
     activeCounterfactual.value = null
+    state.snapshotWeights = null
     // Reset to defaults
     if (state.model) {
       for (const v of state.model.variables) {
@@ -338,10 +584,13 @@ export function useDecisionModel() {
       const result = await createDecisionModel(state.userInput)
       // LLM 有时返回数组，解包为单个对象
       const model = Array.isArray(result) ? result[0] : result
+      // 数据清洗：结构格式化 + 语义索引
+      const sanitized = sanitizeModel(model) || model
       // 通过适配器标准化 treeData
-      model.treeData = adaptTree(model.treeData, model.paths)
-      state.model = model
+      sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
+      state.model = sanitized
       state.paramValues = {}
+      state.snapshotWeights = null
       for (const v of model.variables) {
         if (v.type === 'select') {
           state.paramValues[v.name] = v.options?.[1] ?? v.options?.[0] ?? '均衡'
@@ -389,19 +638,15 @@ export function useDecisionModel() {
     if (!state.savedInput?.trim()) return
     state.loading = true
     try {
-      const result = await simulateModel(state.savedInput, state.paramValues)
+      const result = await refineModel(state.model, state.paramValues, state.savedInput)
       // 通过适配器标准化 treeData
-      result.treeData = adaptTree(result.treeData, result.paths)
-      state.model = result
-      // 重置参数为默认值，避免与上次模拟冲突
-      state.paramValues = {}
-      for (const v of result.variables) {
-        if (v.type === 'select') {
-          state.paramValues[v.name] = v.options?.[1] ?? v.options?.[0] ?? '均衡'
-        } else {
-          state.paramValues[v.name] = 50
-        }
-      }
+      // 数据清洗：结构格式化 + 语义索引
+      const sanitized = sanitizeModel(result) || result
+      // 通过适配器标准化 treeData
+      sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
+      state.model = sanitized
+      // 记录快照，保持用户当前滑块位置
+      state.snapshotWeights = { ...state.paramValues }
       state.adjustedProbabilities = {}
       for (const path of result.paths) {
         state.adjustedProbabilities[path.id] = path.probability

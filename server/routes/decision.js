@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { callQwen } from '../services/llmService.js'
-import { DECISION_MODEL_PROMPT, DECISION_MODEL_DEEP_PROMPT } from '../prompts/decisionModel.js'
+import { DECISION_MODEL_PROMPT, DECISION_MODEL_DEEP_PROMPT, DECISION_REFINE_PROMPT } from '../prompts/decisionModel.js'
 
 const router = Router()
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -114,6 +114,41 @@ router.post('/deep-path', async (req, res) => {
     }
   }
   res.json({ detail: 'No deep path available', ...pathContext })
+})
+
+router.post('/refine', async (req, res) => {
+  const { currentModel, paramValues, userInput } = req.body
+  if (!currentModel || !paramValues) {
+    return res.status(400).json({ error: 'currentModel and paramValues are required' })
+  }
+
+  if (USE_REAL_LLM) {
+    try {
+      const userPrompt = `用户原始问题：${userInput || ''}
+当前参数值：${JSON.stringify(paramValues)}
+现有模型参考：${JSON.stringify(currentModel)}`
+
+      console.log('=== /refine LLM 指令 ===')
+      console.log('[System Prompt]:', DECISION_REFINE_PROMPT)
+      console.log('[User Prompt]:', userPrompt)
+      console.log('=== /refine 指令结束 ===')
+
+      let result = await callQwen(DECISION_REFINE_PROMPT, userPrompt, SIMULATE_MODEL, 2, true)
+      if (Array.isArray(result)) result = result[0]
+      result = sanitizeModel(result)
+      return res.json(result)
+    } catch (err) {
+      console.error('LLM refine failed:', err.message)
+    }
+  }
+
+  // Fallback: return current model unchanged with delta_analysis
+  if (mockData) {
+    let data = mockData
+    if (Array.isArray(data)) data = data[0]
+    return res.json(data)
+  }
+  res.status(500).json({ error: 'Mock data not available' })
 })
 
 export default router

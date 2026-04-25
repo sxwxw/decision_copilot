@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { ElTag, ElEmpty } from 'element-plus'
+import { ElTag, ElEmpty, ElAlert } from 'element-plus'
 import ForkComparison from './ForkComparison.vue'
 
 const props = defineProps({
@@ -49,6 +49,11 @@ const isFork = computed(() => props.viewMode === 'fork-compare')
 /** 是否为全局概览模式 */
 const isOverview = computed(() => props.viewMode === 'overview')
 
+/** 增量分析文案（深度模拟后展示） */
+const deltaAnalysis = computed(() => {
+  return props.recommendation?.delta_analysis || ''
+})
+
 /** 全局概览：所有方案列表 */
 const options = computed(() => {
   if (!props.node?.children) return []
@@ -78,6 +83,14 @@ const options = computed(() => {
 <template>
   <!-- 全局概览 -->
   <div v-if="isOverview && options.length" class="path-detail">
+    <el-alert
+      v-if="deltaAnalysis"
+      :title="deltaAnalysis"
+      type="info"
+      :closable="false"
+      show-icon
+      class="delta-analysis-alert"
+    />
     <h3 class="path-title">方案概览</h3>
     <div class="option-list">
       <div
@@ -403,6 +416,10 @@ const options = computed(() => {
   line-height: 1.7;
   color: var(--text, #555);
   margin: 0;
+}
+
+.delta-analysis-alert {
+  margin-bottom: 12px;
 }
 
 .placeholder {

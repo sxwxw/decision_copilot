@@ -1,0 +1,219 @@
+/* * @Author: wxw * @Date: 2026-04-24 22:55:05 * @LastEditors: wxw *
+@LastEditTime: 2026-04-24 22:58:03 * @FilePath: \decision_copilot\server\test.js
+*/
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      /**
+       * 决策模型数据补全引擎
+       * @param {Object} rawJson - LLM 返回的原始精简 JSON
+       */
+      function hydrateDecisionModel(rawJson) {
+        const data = { ...rawJson }
+
+        // 1. 权重归一化 (防止 LLM 算错总和)
+        const weightSum = Object.values(data.weights).reduce((a, b) => a + b, 0)
+        Object.keys(data.weights).forEach(key => {
+          data.weights[key] = parseFloat(
+            (data.weights[key] / weightSum).toFixed(2)
+          )
+        })
+
+        // 2. 递归补全 Tree 结构 (step, id, 默认值)
+        const hydrateNode = (node, level = 0) => {
+          node.step = level
+          node.value = node.value || Math.floor(Math.random() * 40) + 50 // 默认基准分
+          if (node.children && node.children.length > 0) {
+            node.children.forEach(child => hydrateNode(child, level + 1))
+          } else {
+            delete node.logic_payload // 强制执行约束：叶子节点无 payload
+          }
+        }
+        hydrateNode(data.treeData)
+
+        // 3. 补全 Paths (ID, 维度对齐)
+        data.paths = data.paths.map((p, idx) => ({
+          id: `path-${idx + 1}`,
+          income: p.impact?.['收入'] || 50, // 自动映射或给默认值
+          growth: p.impact?.['成长'] || 50,
+          risk: p.impact?.['风险'] || 30,
+          happiness: p.impact?.['幸福感'] || 70,
+          ...p
+        }))
+
+        // 4. 精确计算 Score (加权求和)
+        // 计算公式：Score = Σ (路径概率 * Σ(维度影响 * 维度权重))
+        const calculatedScores = {}
+        data.options.forEach(opt => {
+          const relatedPaths = data.paths.filter(p => p.name.includes(opt))
+          let expectedValue = 0
+
+          relatedPaths.forEach(path => {
+            let pathScore = 0
+            Object.keys(data.weights).forEach(vName => {
+              const impactValue = path.impact?.[vName] || 50
+              pathScore += impactValue * data.weights[vName]
+            })
+            expectedValue += pathScore * path.probability
+          })
+
+          calculatedScores[opt] = Math.round(expectedValue || 60)
+        })
+
+        // 5. 同步 Score 到推荐列表并排序
+        data.scores = calculatedScores
+        data.recommendation.rank = data.recommendation.rank
+          .map(r => ({
+            ...r,
+            score: calculatedScores[r.option] || 0
+          }))
+          .sort((a, b) => b.score - a.score)
+
+        return data
+      }
+
+      const llmOutput = {
+        options: ['985大学', '大专院校', '出国留学'],
+        variables: [
+          { name: '分数适配度', type: 'slider' },
+          { name: '家庭预算', type: 'select', options: ['低', '中', '高'] },
+          {
+            name: '风险偏好',
+            type: 'select',
+            options: ['保守', '均衡', '激进']
+          }
+        ],
+        weights: { 分数适配度: 0.6, 家庭预算: 0.2, 风险偏好: 0.2 },
+        treeData: {
+          name: '高考决策树',
+          children: [
+            {
+              name: '985大学',
+              logic_payload: {
+                key_impact: '分数过低',
+                risk_level: '高',
+                primary_reason: '录取概率极低',
+                trade_offs: [{ dimension: '分数适配度', delta: -90 }],
+                opportunity_cost: '复读或调剂风险'
+              },
+              children: [
+                {
+                  name: '落榜风险',
+                  logic_payload: {
+                    key_impact: '无法入学',
+                    risk_level: '高',
+                    primary_reason: '300分远低于线',
+                    trade_offs: [{ dimension: '分数适配度', delta: -100 }],
+                    opportunity_cost: '时间成本'
+                  },
+                  children: [{ name: '后果严重' }]
+                }
+              ]
+            },
+            {
+              name: '大专院校',
+              logic_payload: {
+                key_impact: '稳妥升学',
+                risk_level: '低',
+                primary_reason: '符合当前分数段',
+                trade_offs: [{ dimension: '分数适配度', delta: 10 }],
+                opportunity_cost: '学历起点较低'
+              },
+              children: [
+                {
+                  name: '技能提升',
+                  logic_payload: {
+                    key_impact: '就业导向',
+                    risk_level: '中',
+                    primary_reason: '侧重实践',
+                    trade_offs: [{ dimension: '分数适配度', delta: 20 }],
+                    opportunity_cost: '考研难度增加'
+                  },
+                  children: [{ name: '顺利毕业' }]
+                }
+              ]
+            },
+            {
+              name: '出国留学',
+              logic_payload: {
+                key_impact: '资金门槛',
+                risk_level: '高',
+                primary_reason: '需考虑费用与语言',
+                trade_offs: [{ dimension: '家庭预算', delta: -50 }],
+                opportunity_cost: '国内发展机会'
+              },
+              children: [
+                {
+                  name: '申请困难',
+                  logic_payload: {
+                    key_impact: '成绩限制',
+                    risk_level: '高',
+                    primary_reason: '300分难获认可',
+                    trade_offs: [{ dimension: '分数适配度', delta: -80 }],
+                    opportunity_cost: '资金浪费'
+                  },
+                  children: [{ name: '被拒风险' }]
+                }
+              ]
+            }
+          ]
+        },
+        paths: [
+          {
+            name: '985大学 → 落榜风险',
+            probability: 0.95,
+            explanation: '300分远低于985录取线',
+            impact: { 分数适配度: -90, 家庭预算: 0, 风险偏好: -1 },
+            timeline: [
+              { event: '落榜', probability: 0.95, impact: { 分数适配度: -100 } }
+            ]
+          },
+          {
+            name: '大专院校 → 技能提升',
+            probability: 0.85,
+            explanation: '分数匹配度高，易被录取',
+            impact: { 分数适配度: 10, 家庭预算: 0, 风险偏好: 1 },
+            timeline: [
+              { event: '入学', probability: 0.85, impact: { 分数适配度: 20 } }
+            ]
+          },
+          {
+            name: '出国留学 → 申请困难',
+            probability: 0.7,
+            explanation: '高考成绩难以支撑海外申请',
+            impact: { 分数适配度: -80, 家庭预算: -50, 风险偏好: -1 },
+            timeline: [
+              { event: '拒信', probability: 0.7, impact: { 分数适配度: -90 } }
+            ]
+          }
+        ],
+        recommendation: {
+          rank: [
+            {
+              option: '大专院校',
+              summary: '最稳妥选择，匹配当前分数，风险最低'
+            },
+            {
+              option: '出国留学',
+              summary: '需极高预算且面临申请失败风险，不推荐'
+            },
+            { option: '985大学', summary: '录取概率几乎为零，建议放弃' }
+          ],
+          analysis:
+            '基于300分的高考成绩，985大学录取可能性极低，属于高风险低收益选项。出国留学受限于语言和成绩，且经济成本高，风险较大。大专院校是当前分数段内最务实的选择，能确保升学并培养职业技能，建议优先考虑。'
+        }
+      }
+      // 使用示例：
+      const finalData = hydrateDecisionModel(llmOutput)
+
+      console.log(finalData)
+    </script>
+  </body>
+</html>

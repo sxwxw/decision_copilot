@@ -53,7 +53,9 @@
       "mcp__chrome-devtools__get_console_message",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(cd e:\\\\\\\\codeLife\\\\\\\\decision_copilot)",
-      "mcp__chrome-devtools__list_network_requests"
+      "mcp__chrome-devtools__list_network_requests",
+      "Bash(openspec-cn new *)",
+      "Bash(openspec-cn list *)"
     ],
     "deny": [
       "Bash(git push *)",

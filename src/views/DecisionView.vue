@@ -113,8 +113,7 @@ const topWeightParam = computed(() => {
       <div class="panel result-col">
         <div class="result-tree" v-if="state.model">
           <DecisionTree :tree-data="state.model.treeData" :selected-node="state.selectedNode"
-            :adjusted-prob-map="state.adjustedProbabilities"
-            @node-click="onNodeClick" />
+            :adjusted-prob-map="state.adjustedProbabilities" @node-click="onNodeClick" />
         </div>
         <div class="result-tree placeholder" v-else>
           <el-empty description="输入决策问题并提交后，将在此处展示决策树" />
@@ -125,22 +124,17 @@ const topWeightParam = computed(() => {
 
         <div class="result-bottom" :style="{ height: bottomHeight + 'px' }">
           <div class="path-detail-col" v-if="state.model">
-            <PathDetail
-              :path-chain="state.selectedNode?.pathChain ?? []"
-              :matched-path="state.selectedNode?.matchedPath ?? null"
-              :node="state.selectedNode ?? null"
-              :view-mode="state.selectedNode?.viewMode ?? 'trace'"
-              :top-param="topWeightParam"
-              :get-adjusted-score="getAdjustedScore"
-              :get-score-attribution="getScoreAttribution"
-              :base-scores="state.model?.scores ?? {}"
-              :recommendation="state.model?.recommendation ?? null"
-              :adjusted-prob-map="state.adjustedProbabilities"
-              :param-values="state.paramValues"
-              :weights="state.model?.weights ?? {}"
-              :user-input="state.savedInput"
-              :all-options="state.model?.treeData?.children ?? []"
-            />
+            <PathDetail :path-chain="state.selectedNode?.pathChain ?? []"
+              :matched-path="state.selectedNode?.matchedPath ?? null" :node="state.selectedNode ?? null"
+              :view-mode="state.selectedNode?.viewMode ?? 'trace'" :top-param="topWeightParam"
+              :get-adjusted-score="getAdjustedScore" :get-score-attribution="getScoreAttribution"
+              :base-scores="state.model?.scores ?? {}" :recommendation="state.model?.recommendation ?? null"
+              :adjusted-prob-map="state.adjustedProbabilities" :param-values="state.paramValues"
+              :weights="state.model?.weights ?? {}" :user-input="state.savedInput"
+              :all-options="state.model?.treeData?.children ?? []" />
+          </div>
+          <div class="result-path placeholder" v-else>
+            <el-empty description="点击节点，此处展示路径详情与深度分析" :image-size="80" />
           </div>
         </div>
       </div>
@@ -272,6 +266,19 @@ const topWeightParam = computed(() => {
   gap: 0;
   border-top: 1px solid var(--border, #e5e7eb);
   flex-shrink: 0;
+}
+
+.result-path {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: auto;
+}
+
+.result-path.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .path-detail-col {

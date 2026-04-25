@@ -102,7 +102,7 @@ h3 {
 .param-placeholder {
   color: #999;
   font-size: 13px;
-  padding: 20px 0;
+  padding: 20px 16px;
 }
 
 .simulate-wrapper {

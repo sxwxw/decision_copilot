@@ -2,7 +2,7 @@
  * @Author: wxw
  * @Date: 2026-04-22 11:57:20
  * @LastEditors: wxw
- * @LastEditTime: 2026-04-24 21:10:10
+ * @LastEditTime: 2026-04-26 13:34:39
  * @FilePath: \decision_copilot\server\prompts\decisionModel.js
  */
 
@@ -173,7 +173,7 @@ export const DECISION_MODEL_DEEP_PROMPT = `你是一个资深的决策科学专�
   },
   "scores": { "<选项1>": <分数>, "<选项2>": <分数> }
 }
-`;
+`
 
 // 深度模拟专用 prompt（/refine 接口）：基于已有模型和当前参数，二次推演
 export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家。
@@ -233,4 +233,15 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
   },
   "scores": { "<选项1>": <分数>, "<选项2>": <分数> }
 }
-`;
+`
+
+// 输入校验专用 prompt（/validate 接口）：判断用户输入是否为有效决策场景
+export const DECISION_VALIDATE_PROMPT = `判断用户输入是否为具体的决策问题。
+
+判断标准：
+1. 必须包含至少两个可对比的选项或方向（如"选A还是B"、"是否要"、"怎么办"）
+2. 必须有明确的决策目标
+3. 不能是闲聊、问候、无意义文本、纯乱码
+
+仅返回JSON：{"valid": true} 或 {"valid": false}
+`

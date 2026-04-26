@@ -1,5 +1,10 @@
 import axios from 'axios'
 
+export async function validateInput(userInput) {
+  const { data } = await axios.post('/api/decision/validate', { userInput })
+  return data
+}
+
 export async function createDecisionModel(userInput) {
   const { data } = await axios.post('/api/decision/model', { userInput })
   return data

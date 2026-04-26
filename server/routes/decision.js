@@ -6,7 +6,8 @@ import { callQwen } from '../services/llmService.js'
 import {
   DECISION_MODEL_PROMPT,
   DECISION_MODEL_DEEP_PROMPT,
-  DECISION_REFINE_PROMPT
+  DECISION_REFINE_PROMPT,
+  DECISION_VALIDATE_PROMPT
 } from '../prompts/decisionModel.js'
 
 const router = Router()
@@ -53,6 +54,7 @@ function sanitizeModel(raw) {
 
 const DECISION_MODEL = process.env.DECISION_MODEL || 'qwen-plus'
 const SIMULATE_MODEL = process.env.SIMULATE_MODEL || 'qwen-plus'
+const VALIDATE_MODEL = process.env.DECISION_MODEL || 'qwen3.5-flash'
 const USE_REAL_LLM = process.env.USE_REAL_LLM === 'true'
 console.log(
   '[decision route] USE_REAL_LLM:',
@@ -61,9 +63,32 @@ console.log(
   DECISION_MODEL,
   '| SIMULATE_MODEL:',
   SIMULATE_MODEL,
+  '| VALIDATE_MODEL:',
+  VALIDATE_MODEL,
   '| API_URL:',
   process.env.DASHSCOPE_API_URL || '(default)'
 )
+
+router.post('/validate', async (req, res) => {
+  const { userInput } = req.body
+  if (!userInput) {
+    return res.status(400).json({ error: 'userInput is required' })
+  }
+
+  if (!USE_REAL_LLM) {
+    // Mock mode: always pass validation
+    return res.json({ valid: true })
+  }
+
+  try {
+    const result = await callQwen(DECISION_VALIDATE_PROMPT, userInput, VALIDATE_MODEL, 0, false)
+    return res.json(result)
+  } catch (err) {
+    console.error('Validation LLM call failed:', err.message)
+    // Fail open: if validation service is down, let the main call proceed
+    return res.json({ valid: true })
+  }
+})
 
 router.post('/model', async (req, res) => {
   const { userInput } = req.body

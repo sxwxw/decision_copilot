@@ -1,6 +1,7 @@
 import { reactive, computed, ref } from 'vue'
-import { createDecisionModel, simulateModel, refineModel } from '../api/decision'
+import { createDecisionModel, simulateModel, refineModel, validateInput } from '../api/decision'
 import { Decimal } from 'decimal.js'
+import { ElMessage } from 'element-plus'
 
 // ── 数据清洗器：结构格式化 + 语义索引 ──
 
@@ -587,11 +588,36 @@ export function useDecisionModel() {
 
   async function buildModel() {
     if (!state.userInput.trim()) return
+    // 前端基础校验
+    const trimmed = state.userInput.trim()
+    if (trimmed.length < 5) {
+      ElMessage.warning('请输入至少5个字符的决策问题')
+      return
+    }
+    if (!/[^\x00-\x7f]/.test(trimmed)) {
+      ElMessage.warning('请包含至少一个中文字符或中文标点')
+      return
+    }
+
     state.loading = true
     // 保存问题，供深度模拟使用
     state.savedInput = state.userInput
     try {
+      // 先调用校验接口判断是否为有效决策问题
+      const validateResult = await validateInput(state.userInput)
+      if (!validateResult.valid) {
+        ElMessage.warning(validateResult.reason || '请描述一个具体的决策问题')
+        state.loading = false
+        return
+      }
+
       const result = await createDecisionModel(state.userInput)
+      // 检查 LLM 是否返回无效输入错误
+      if (result?.error === 'invalid_input') {
+        ElMessage.warning(result.message || '请描述一个具体的决策问题')
+        state.loading = false
+        return
+      }
       // LLM 有时返回数组，解包为单个对象
       const model = Array.isArray(result) ? result[0] : result
       // 数据清洗：结构格式化 + 语义索引

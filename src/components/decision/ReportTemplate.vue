@@ -295,7 +295,7 @@ const hedgeSuggestion = computed(() => {
       </div>
 
       <!-- 决策结论摘要（定音鼓） -->
-      <div v-if="rankedOptions.length" class="decision-summary">
+      <div v-if="rankedOptions.length" class="decision-summary pdf-block">
         <div class="ds-top-row">
           <span class="ds-rank-badge">1</span>
           <span class="ds-name">{{ rankedOptions[0].name }}</span>
@@ -397,7 +397,7 @@ const hedgeSuggestion = computed(() => {
       </div>
 
       <!-- 风险压测（安全边际） -->
-      <div v-if="safetyMargins.length" class="stress-test">
+      <div v-if="safetyMargins.length" class="stress-test pdf-block">
         <h2 class="section-heading">安全边际</h2>
         <table class="margin-table">
           <thead>
@@ -427,7 +427,7 @@ const hedgeSuggestion = computed(() => {
       </div>
 
       <!-- 高风险 Step 深度解析 -->
-      <div v-if="highestRiskStep" class="stress-details">
+      <div v-if="highestRiskStep" class="stress-details pdf-block">
         <h2 class="section-heading">压力测试：{{ highestRiskStep.name }}</h2>
         <div class="stress-detail-grid">
           <div class="stress-metrics">
@@ -522,7 +522,7 @@ const hedgeSuggestion = computed(() => {
       </div>
 
       <!-- 免责声明 -->
-      <div class="disclaimer">
+      <div class="disclaimer pdf-block">
         本报告基于动态逻辑模型生成。由于市场环境的非线性变化，建议将此推演作为战略参考，而非唯一执行依据。
       </div>
     </section>

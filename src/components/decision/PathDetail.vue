@@ -261,121 +261,91 @@ function getDeltaDirection(step) {
 <template>
   <!-- 全局概览 -->
   <div v-if="isOverview && options.length" class="path-detail">
-    <el-alert
-      v-if="deltaAnalysis"
-      :title="deltaAnalysis"
-      type="info"
-      :closable="false"
-      show-icon
-      class="delta-analysis-alert"
-    />
+    <el-alert v-if="deltaAnalysis" :title="deltaAnalysis" type="info" :closable="false" show-icon
+      class="delta-analysis-alert" />
 
     <!-- Tab switcher -->
     <div class="overview-tabs">
-      <button
-        :class="['overview-tab', { active: overviewTab === 'detail' }]"
-        @click="overviewTab = 'detail'"
-      >
+      <button :class="['overview-tab', { active: overviewTab === 'detail' }]" @click="overviewTab = 'detail'">
         路径详情
       </button>
-      <button
-        :class="['overview-tab', { active: overviewTab === 'sensitivity' }]"
-        @click="overviewTab = 'sensitivity'"
-      >
+      <button :class="['overview-tab', { active: overviewTab === 'sensitivity' }]" @click="overviewTab = 'sensitivity'">
         敏感性分析
       </button>
-      <button
-        :class="['overview-tab', { active: overviewTab === 'devil' }]"
-        @click="overviewTab = 'devil'"
-      >
+      <button :class="['overview-tab', { active: overviewTab === 'devil' }]" @click="overviewTab = 'devil'">
         审查
       </button>
-      <button
-        :class="['overview-tab', { active: overviewTab === 'nexus' }]"
-        @click="overviewTab = 'nexus'"
-      >
+      <button :class="['overview-tab', { active: overviewTab === 'nexus' }]" @click="overviewTab = 'nexus'">
         综合报告
       </button>
     </div>
 
     <!-- Detail tab -->
     <template v-if="overviewTab === 'detail'">
-    <h3 class="path-title">方案概览</h3>
-    <div class="option-list">
-      <div
-        v-for="(opt, idx) in options"
-        :key="opt.id"
-        class="option-card"
-        :class="opt.status || ''"
-      >
-        <div class="option-rank">
-          <span class="rank-num">{{ idx + 1 }}</span>
-          <span class="rank-name">{{ opt.name }}</span>
-        </div>
-        <div class="option-score-group">
-          <span class="option-score">{{ opt.score }}</span>
-          <span class="option-base-score">基准 {{ opt.baseScore }}</span>
-          <span
-            v-if="Math.abs(opt.diff) > 5"
-            class="option-diff"
-            :class="opt.diff > 0 ? 'diff-positive' : 'diff-negative'"
-          >
-            {{ opt.diff > 0 ? '↑' : '↓' }} {{ opt.diff > 0 ? '+' : '' }}{{ opt.diff }}
-          </span>
-        </div>
-        <div v-if="opt.attribution" class="option-attribution">
-          {{ opt.attribution }}
-        </div>
-        <div v-if="opt.logic_payload" class="option-payload">
-          <el-tag :type="
-            opt.logic_payload.risk_level === '低' ? 'success' :
-            opt.logic_payload.risk_level === '高' ? 'danger' : 'warning'
-          " size="small">
-            风险 {{ opt.logic_payload.risk_level }}
-          </el-tag>
-          <span class="option-key-impact">{{ opt.logic_payload.key_impact }}</span>
+      <h3 class="path-title">方案概览</h3>
+      <div class="option-list">
+        <div v-for="(opt, idx) in options" :key="opt.id" class="option-card" :class="opt.status || ''">
+          <div class="option-rank">
+            <span class="rank-num">{{ idx + 1 }}</span>
+            <span class="rank-name">{{ opt.name }}</span>
+          </div>
+          <div class="option-score-group">
+            <span class="option-score">{{ opt.score }}</span>
+            <span class="option-base-score">基准 {{ opt.baseScore }}</span>
+            <span v-if="Math.abs(opt.diff) > 5" class="option-diff"
+              :class="opt.diff > 0 ? 'diff-positive' : 'diff-negative'">
+              {{ opt.diff > 0 ? '↑' : '↓' }} {{ opt.diff > 0 ? '+' : '' }}{{ opt.diff }}
+            </span>
+          </div>
+          <div v-if="opt.attribution" class="option-attribution">
+            {{ opt.attribution }}
+          </div>
+          <div v-if="opt.logic_payload" class="option-payload">
+            <el-tag :type="opt.logic_payload.risk_level === '低' ? 'success' :
+              opt.logic_payload.risk_level === '高' ? 'danger' : 'warning'
+              " size="small">
+              风险 {{ opt.logic_payload.risk_level }}
+            </el-tag>
+            <span class="option-key-impact">{{ opt.logic_payload.key_impact }}</span>
+          </div>
         </div>
       </div>
-    </div>
-    <div v-if="recommendation?.analysis" class="analysis-card">
-      <h4 class="analysis-title">分析</h4>
-      <p>{{ recommendation.analysis }}</p>
-    </div>
+      <div v-if="recommendation?.analysis" class="analysis-card">
+        <h4 class="analysis-title">分析</h4>
+        <p>{{ recommendation.analysis }}</p>
+      </div>
 
-    <!-- 蒙特卡洛仿真结果 -->
-    <div v-if="mcSummary" class="monte-carlo-card">
-      <h4 class="mc-title">蒙特卡洛仿真（P10 / P50 / P90）</h4>
-      <div class="mc-table">
-        <div v-for="item in mcSummary.ranking" :key="item.name" class="mc-row">
-          <span class="mc-rank">#{{ item.rank }}</span>
-          <span class="mc-name">{{ item.name }}</span>
-          <span class="mc-stat">
-            P10: <strong>{{ mcSummary.optionResults[item.name]?.p10 ?? '-' }}</strong>
-          </span>
-          <span class="mc-stat mc-median">
-            P50: <strong>{{ mcSummary.optionResults[item.name]?.p50 ?? '-' }}</strong>
-          </span>
-          <span class="mc-stat">
-            P90: <strong>{{ mcSummary.optionResults[item.name]?.p90 ?? '-' }}</strong>
-          </span>
-          <span class="mc-sigma">σ = {{ mcSummary.optionResults[item.name]?.sigma ?? '-' }}</span>
+      <!-- 蒙特卡洛仿真结果 -->
+      <div v-if="mcSummary" class="monte-carlo-card">
+        <h4 class="mc-title">蒙特卡洛仿真（P10 / P50 / P90）</h4>
+        <div class="mc-table">
+          <div v-for="item in mcSummary.ranking" :key="item.name" class="mc-row">
+            <span class="mc-rank">#{{ item.rank }}</span>
+            <span class="mc-name">{{ item.name }}</span>
+            <span class="mc-stat">
+              P10: <strong>{{ mcSummary.optionResults[item.name]?.p10 ?? '-' }}</strong>
+            </span>
+            <span class="mc-stat mc-median">
+              P50: <strong>{{ mcSummary.optionResults[item.name]?.p50 ?? '-' }}</strong>
+            </span>
+            <span class="mc-stat">
+              P90: <strong>{{ mcSummary.optionResults[item.name]?.p90 ?? '-' }}</strong>
+            </span>
+            <span class="mc-sigma">σ = {{ mcSummary.optionResults[item.name]?.sigma ?? '-' }}</span>
+          </div>
         </div>
       </div>
-    </div>
     </template>
 
     <!-- Sensitivity analysis tab -->
     <template v-else-if="overviewTab === 'sensitivity'">
-      <SensitivityAnalysis
-        :sensitivity="sensitivity"
-        :options="options"
-        @run="emit('sensitivityRun')"
-      />
+      <SensitivityAnalysis :sensitivity="sensitivity" :options="options" @run="emit('sensitivityRun')" />
     </template>
 
     <!-- Devil review tab -->
     <template v-else-if="overviewTab === 'devil'">
-      <DevilReview :devil-result="devilResult" :pipeline-devil="pipelineDevil" :loading="devilLoading" @rerun="emit('devilRerun')" />
+      <DevilReview :devil-result="devilResult" :pipeline-devil="pipelineDevil" :loading="devilLoading"
+        @rerun="emit('devilRerun')" />
     </template>
 
     <!-- Nexus report tab -->
@@ -385,13 +355,8 @@ function getDeltaDirection(step) {
   </div>
 
   <!-- 分叉对比 -->
-  <ForkComparison
-    v-else-if="isFork"
-    :path-chain="pathChain"
-    :node="node"
-    :top-param="topParam"
-    :adjusted-prob-map="adjustedProbMap"
-  />
+  <ForkComparison v-else-if="isFork" :path-chain="pathChain" :node="node" :top-param="topParam"
+    :adjusted-prob-map="adjustedProbMap" />
 
   <!-- 路径溯源（叶节点） -->
   <div v-else-if="isTrace && pathChain.length" class="path-detail">
@@ -416,32 +381,20 @@ function getDeltaDirection(step) {
 
     <!-- 路径链可视化（带中间标注） -->
     <div class="path-chain">
-      <div
-        v-for="(step, idx) in pathChain"
-        :key="step.id ?? idx"
-        class="chain-step"
-      >
+      <div v-for="(step, idx) in pathChain" :key="step.id ?? idx" class="chain-step">
         <div class="chain-card" :class="[step.status || '']">
           <span class="chain-step-label">Step {{ step.step }}</span>
           <span class="chain-name">{{ step.name }}</span>
           <span class="chain-value">{{ step.score }}</span>
         </div>
-        <el-tag
-          v-if="step.status"
-          :type="STATUS_MAP[step.status]?.type || 'info'"
-          size="small"
-          effect="plain"
-          class="chain-status"
-        >
+        <!-- <el-tag v-if="step.status" :type="STATUS_MAP[step.status]?.type || 'info'" size="small" effect="plain"
+          class="chain-status">
           {{ STATUS_MAP[step.status]?.label }}
-        </el-tag>
+        </el-tag> -->
         <div v-if="idx < pathChain.length - 1" class="chain-bridge">
           <span class="bridge-impact">{{ step.meta?.key_impact }}</span>
-          <span
-            v-if="getDeltaDirection(step)"
-            class="bridge-delta"
-            :class="getDeltaDirection(step) === 'up' ? 'delta-up' : 'delta-down'"
-          >
+          <span v-if="getDeltaDirection(step)" class="bridge-delta"
+            :class="getDeltaDirection(step) === 'up' ? 'delta-up' : 'delta-down'">
             {{ getDeltaDirection(step) === 'up' ? '↑' : '↓' }}
           </span>
           <span class="bridge-arrow">──▶</span>
@@ -510,6 +463,7 @@ function getDeltaDirection(step) {
   display: inline-block;
   margin-bottom: 14px;
 }
+
 .probability-badge strong {
   color: var(--accent, #3b82f6);
 }
@@ -675,16 +629,19 @@ function getDeltaDirection(step) {
   min-width: 100px;
   transition: border-color 0.3s, background 0.3s;
 }
+
 .chain-card.positive,
 .chain-card.success {
   border-color: #059669;
   background: rgba(5, 150, 105, 0.04);
 }
+
 .chain-card.negative,
 .chain-card.error {
   border-color: #dc2626;
   background: rgba(220, 38, 38, 0.04);
 }
+
 .chain-card.warning {
   border-color: #d97706;
   background: rgba(217, 119, 6, 0.04);

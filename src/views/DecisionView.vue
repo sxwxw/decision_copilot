@@ -4,11 +4,13 @@ import InputPanel from '../components/decision/InputPanel.vue'
 import ParamPanel from '../components/decision/ParamPanel.vue'
 import DecisionTree from '../components/decision/DecisionTree.vue'
 import PathDetail from '../components/decision/PathDetail.vue'
+import PipelineProgress from '../components/decision/PipelineProgress.vue'
 import { useDecisionModel } from '../composables/useDecisionModel'
 
-const { state, scores, buildModel, recalcScores, runSimulation, selectNode,
+const { state, scores, buildModel, recalcScores, runDeepSimulation, runDevilReview, runSensitivity, runPipeline, clearStorage, selectNode,
   counterfactuals, counterfactualActive, activeCounterfactual,
-  applyCounterfactual, resetCounterfactual, getScoreDiff, getAdjustedScore, getScoreAttribution } = useDecisionModel()
+  applyCounterfactual, resetCounterfactual, getScoreDiff, getAdjustedScore, getScoreAttribution, monteCarloResult,
+  runDeepValidation, resetModel, pipelineDevil, pipelineNexus } = useDecisionModel()
 
 const leftPanelWidth = ref(300)
 const MIN_LEFT = 260
@@ -57,9 +59,9 @@ function startResizeBottom(e) {
   document.addEventListener('mouseup', onMouseUp)
 }
 
-function onSubmit(input) {
+function onSubmit(input, riskPreference) {
   state.userInput = input
-  buildModel()
+  buildModel(riskPreference)
 }
 
 let _debounceTimer = null
@@ -100,9 +102,31 @@ const topWeightParam = computed(() => {
       <div class="panel input-col" :style="{ width: leftPanelWidth + 'px' }">
         <div class="left-scroll">
           <InputPanel :loading="state.loading" @submit="onSubmit" />
+          <div class="pipeline-section" v-if="state.model">
+            <div class="deep-validation-section">
+              <el-button
+                type="primary"
+                size="small"
+                :loading="state.loading"
+                :disabled="state.loading"
+                @click="runDeepValidation"
+                class="btn-deep-validation"
+              >
+                深度验证
+              </el-button>
+              <span class="reset-model-link" @click="resetModel">重新生成模型</span>
+            </div>
+            <PipelineProgress
+              :pipeline-id="state.pipelineId"
+              :status="state.pipelineStatus"
+              :current-step="state.pipelineCurrentStep"
+              :completed-steps="state.pipelineCompletedSteps"
+              :mode="state.pipelineMode"
+            />
+          </div>
           <div class="left-divider"></div>
           <ParamPanel :model="state.model" :param-values="state.paramValues" @update-param="onUpdateParam"
-            @recalc="runSimulation" @reset="onResetCounterfactual" />
+            @reset="onResetCounterfactual" @clear-cache="clearStorage" />
         </div>
       </div>
 
@@ -131,7 +155,15 @@ const topWeightParam = computed(() => {
               :base-scores="state.model?.scores ?? {}" :recommendation="state.model?.recommendation ?? null"
               :adjusted-prob-map="state.adjustedProbabilities" :param-values="state.paramValues"
               :weights="state.model?.weights ?? {}" :user-input="state.savedInput"
-              :all-options="state.model?.treeData?.children ?? []" />
+              :all-options="state.model?.treeData?.children ?? []"
+              :monte-carlo-result="state.monteCarloResult"
+              :devil-result="state.devilResult"
+              :pipeline-devil="pipelineDevil"
+              :pipeline-nexus="pipelineNexus"
+              :devil-loading="state.devilLoading"
+              :sensitivity="state.model?.sensitivity ?? null"
+              @devil-rerun="runDevilReview"
+              @sensitivity-run="runSensitivity" />
           </div>
           <div class="result-path placeholder" v-else>
             <el-empty description="点击节点，此处展示路径详情与深度分析" :image-size="80" />
@@ -188,6 +220,33 @@ const topWeightParam = computed(() => {
   background: var(--border, #e5e7eb);
   margin: 0 12px;
   flex-shrink: 0;
+}
+
+.pipeline-section {
+  padding: 8px 12px;
+}
+
+.deep-validation-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-deep-validation {
+  flex: 1;
+}
+
+.reset-model-link {
+  font-size: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.reset-model-link:hover {
+  color: var(--accent, #3b82f6);
+  text-decoration: underline;
 }
 
 .resize-divider {

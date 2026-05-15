@@ -1,7 +1,125 @@
 import { reactive, computed, ref } from 'vue'
-import { createDecisionModel, simulateModel, refineModel, validateInput } from '../api/decision'
+import { createDecisionModel, simulateModel, refineModel, validateInput, devilReview, runFramework, runBuildModel, runFullPipeline } from '../api/decision'
 import { Decimal } from 'decimal.js'
 import { ElMessage } from 'element-plus'
+import { runMonteCarlo as runMC } from '../utils/simulator.js'
+
+// ── 本地持久化 ──
+
+const STORAGE_KEY = 'decision-copilot-state'
+const STORAGE_VERSION = 1
+
+function saveToStorage() {
+  if (!state.model) return
+  console.log('[Persistence] 保存模型到 localStorage')
+  const payload = {
+    version: STORAGE_VERSION,
+    timestamp: Date.now(),
+    userInput: state.savedInput,
+    model: state.model,
+    paramValues: state.paramValues,
+    adjustedProbabilities: state.adjustedProbabilities,
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  } catch (err) {
+    console.error('[Persistence] 存储失败:', err)
+  }
+}
+
+function loadFromStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) return null
+
+  console.log('[Persistence] 发现本地缓存，尝试恢复')
+  try {
+    const data = JSON.parse(raw)
+    if (data.version !== STORAGE_VERSION) {
+      console.warn(`[Persistence] 版本不匹配 (local=${data.version}, current=${STORAGE_VERSION})，清除旧数据`)
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    if (!data.model || !data.model.treeData) {
+      console.warn('[Persistence] 数据结构不完整，清除')
+      localStorage.removeItem(STORAGE_KEY)
+      return null
+    }
+    return data
+  } catch (err) {
+    console.error('[Persistence] 解析失败，清除:', err)
+    localStorage.removeItem(STORAGE_KEY)
+    return null
+  }
+}
+
+function clearStorage() {
+  localStorage.removeItem(STORAGE_KEY)
+  console.log('[Persistence] 本地缓存已清除')
+}
+
+// ── 前端校验层：与服务端共享相同规则 ──
+
+function validateModel(raw) {
+  const errors = []
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    errors.push({ field: '*', message: '模型数据格式错误', severity: 'error' })
+    return errors
+  }
+
+  const options = Array.isArray(raw.options) ? raw.options : []
+  const weights = raw.weights && typeof raw.weights === 'object' ? raw.weights : {}
+  const scores = raw.scores && typeof raw.scores === 'object' ? raw.scores : {}
+  const paths = Array.isArray(raw.paths) ? raw.paths : []
+  const variables = Array.isArray(raw.variables) ? raw.variables.map(v => v.name) : []
+
+  // 结构完整性
+  if (options.length < 2) {
+    errors.push({ field: 'options', message: '至少需要 2 个选项', severity: 'error' })
+  }
+
+  // 范围校验
+  for (const [key, val] of Object.entries(weights)) {
+    if (typeof val !== 'number' || val < 0 || val > 1) {
+      errors.push({ field: `weights.${key}`, message: `权重 ${key} 超出 [0, 1] 范围 (${val})`, severity: 'error' })
+    }
+  }
+  for (const [key, val] of Object.entries(scores)) {
+    if (typeof val !== 'number' || val < 0 || val > 100) {
+      errors.push({ field: `scores.${key}`, message: `分数 ${key} 超出 [0, 100] 范围 (${val})`, severity: 'error' })
+    }
+  }
+  for (let i = 0; i < paths.length; i++) {
+    const prob = paths[i].probability
+    if (typeof prob === 'number' && (prob < 0 || prob > 1)) {
+      errors.push({ field: `paths[${i}].probability`, message: '概率超出 [0, 1] 范围', severity: 'error' })
+    }
+  }
+
+  // 语义一致性（warning）：每个 option 下的路径概率之和 ≈ 1.0
+  const pathsByOption = {}
+  for (const p of paths) {
+    if (typeof p.probability !== 'number') continue
+    const optionName = (p.name || '').split('→')[0].trim()
+    if (!optionName) continue
+    if (!pathsByOption[optionName]) pathsByOption[optionName] = []
+    pathsByOption[optionName].push(p.probability)
+  }
+  for (const [option, probs] of Object.entries(pathsByOption)) {
+    const sum = probs.reduce((a, b) => a + b, 0)
+    if (Math.abs(sum - 1.0) > 0.05) {
+      errors.push({ field: 'paths', message: `「${option}」路径概率总和为 ${sum.toFixed(2)}，应 ≈ 1.0`, severity: 'warning' })
+    }
+  }
+  const weightVals = Object.values(weights).filter(v => typeof v === 'number')
+  if (weightVals.length > 0) {
+    const wSum = weightVals.reduce((a, b) => a + b, 0)
+    if (Math.abs(wSum - 1.0) > 0.05) {
+      errors.push({ field: 'weights', message: `权重总和为 ${wSum.toFixed(2)}，应 ≈ 1.0`, severity: 'warning' })
+    }
+  }
+
+  return errors
+}
 
 // ── 数据清洗器：结构格式化 + 语义索引 ──
 
@@ -18,14 +136,33 @@ function sanitizeModel(rawData) {
   d.options = Array.isArray(d.options) ? d.options : []
   console.log('[Sanitizer] options:', JSON.stringify(d.options))
 
-  // 1b. variables 始终从 weights key 构造，忽略 LLM 返回的（可能不一致）
+  // 1b. variables 从 weights key 构造，但保留 LLM 原始变量中的 sim_spec
   if (d.weights && typeof d.weights === 'object') {
     const varKeys = Object.keys(d.weights)
     const RISK_PREFERENCE = '风险偏好'
     const otherKeys = varKeys.filter(k => k !== RISK_PREFERENCE)
+    const originalVarMap = Array.isArray(rawData.variables)
+      ? Object.fromEntries(rawData.variables.map(v => [v.name, v]))
+      : {}
     d.variables = [
-      ...otherKeys.map(name => ({ name, type: 'slider', range: [0, 100] })),
-      { name: RISK_PREFERENCE, type: 'select', options: ['保守', '均衡', '激进'] }
+      ...otherKeys.map(name => {
+        const orig = originalVarMap[name]
+        return {
+          name,
+          type: orig?.type || 'slider',
+          range: orig?.range || [0, 100],
+          sim_spec: orig?.sim_spec,
+        }
+      }),
+      {
+        name: RISK_PREFERENCE,
+        type: 'select',
+        options: ['保守', '均衡', '激进'],
+        sim_spec: originalVarMap[RISK_PREFERENCE]?.sim_spec || {
+          type: 'categorical',
+          params: { values: ['保守', '均衡', '激进'], probabilities: [0.25, 0.5, 0.25] },
+        },
+      },
     ]
   } else {
     d.variables = []
@@ -353,15 +490,59 @@ function adaptTree(rawTree, rawPaths) {
 const state = reactive({
   userInput: '',
   savedInput: '',   // last submitted question, used by deep simulate
+  riskPreference: '均衡', // 风险偏好：保守/均衡/激进
   loading: false,
   model: null,       // { options, variables, weights, treeData, paths, recommendation, scores }
   selectedNode: null,
   paramValues: {},   // current param values for recalc
   snapshotWeights: null, // snapshot of param values at time of last refine (for incremental scoring)
   adjustedProbabilities: {}, // pathId -> adjusted probability
+  monteCarloResult: null, // { optionResults, ranking }
+  devilResult: null, // DEVIL 对抗性审查结果
+  devilLoading: false, // DEVIL 请求中
+  // Pipeline state
+  pipelineId: null,
+  pipelineStatus: 'idle', // idle | running | completed | failed
+  pipelineCurrentStep: null,
+  pipelineCompletedSteps: [],
+  pipelineResult: null,
+  pipelineMode: 'quick-build', // quick-build | deep-validation
 })
 
 export function useDecisionModel() {
+  /**
+   * 恢复本地持久化的模型数据。
+   * 定义在 useDecisionModel 内部以访问 selectNode。
+   */
+  function tryRestoreFromStorage() {
+    const data = loadFromStorage()
+    if (!data) return
+
+    console.log('[Persistence] 恢复本地缓存模型')
+    state.userInput = data.userInput || ''
+    state.savedInput = data.userInput || ''
+    state.riskPreference = data.riskPreference || '均衡'
+    state.model = data.model
+    state.paramValues = data.paramValues || {}
+    state.adjustedProbabilities = data.adjustedProbabilities || {}
+
+    // 恢复 treeData 适配和 _version
+    if (state.model.treeData) {
+      if (!state.model.treeData.pathIds && state.model.paths) {
+        state.model.treeData = adaptTree(state.model.treeData, state.model.paths)
+      }
+      state.model.treeData._version = 0
+    }
+
+    state.selectedNode = null
+    selectNode(state.model.treeData)
+
+    ElMessage.success('已恢复上次决策模型')
+  }
+
+  // 初始化：检查本地缓存并恢复
+  tryRestoreFromStorage()
+
   /**
    * 构建敏感度映射表：方案名 → { 维度名 → delta }
    * 从 treeData.children（第一层方案节点）的 logic_payload.trade_offs 提取。
@@ -395,16 +576,16 @@ export function useDecisionModel() {
     const sensitivityMap = buildSensitivityMap()
     const dims = sensitivityMap[optionName] || {}
 
-    // 按实际 impact 排序：有快照时用 (paramValue - snapshotValue) / 100 × delta × 2，否则用 (paramValue/100 - 0.5) × delta × 2
     let topDim = '', topDelta = 0, topParamValue = 50, topImpact = 0
     for (const [dim, d] of Object.entries(dims)) {
       if (state.model.weights[dim] === undefined) continue
       const pv = state.paramValues[dim] ?? 50
+      const weight = state.model.weights[dim] ?? 1
       let impact
       if (state.snapshotWeights && state.snapshotWeights[dim] !== undefined) {
-        impact = (pv - state.snapshotWeights[dim]) / 100 * d * 2
+        impact = (pv - state.snapshotWeights[dim]) / 100 * d * 2 * weight
       } else {
-        impact = (pv / 100 - 0.5) * d * 2
+        impact = (pv / 100 - 0.5) * d * 2 * weight
       }
       if (Math.abs(impact) > Math.abs(topImpact)) {
         topImpact = impact
@@ -415,21 +596,22 @@ export function useDecisionModel() {
     }
     if (!topDim) return `与基准差异较大（${diff > 0 ? '+' : ''}${diff}分）`
 
-    const userValues = topParamValue > 50
-    const isStrong = topDelta > 0
+    const userPrefersHigh = topParamValue > 50
+    const isStrongPositive = topDelta < 0
     const sign = diff > 0 ? '+' : '-'
     const absDiff = Math.abs(diff)
+    const deltaDesc = Math.abs(topDelta) > 15 ? '突出' : '一般'
 
-    if (userValues && isStrong) {
-      return `基准 ${baseScore}，你重视「${topDim}」，该方案在此项突出，${sign}${absDiff}分`
+    if (userPrefersHigh && isStrongPositive) {
+      return `基准 ${baseScore}，重视「${topDim}」，该方案在此项${deltaDesc}，${sign}${absDiff}分`
     }
-    if (userValues && !isStrong) {
-      return `基准 ${baseScore}，你重视「${topDim}」，该方案在此项不足，${sign}${absDiff}分`
+    if (userPrefersHigh && !isStrongPositive) {
+      return `基准 ${baseScore}，重视「${topDim}」，该方案在此项${deltaDesc}，${sign}${absDiff}分`
     }
-    if (!userValues && isStrong) {
-      return `基准 ${baseScore}，你淡化「${topDim}」，该方案此项优势未受关注，${sign}${absDiff}分`
+    if (!userPrefersHigh && isStrongPositive) {
+      return `基准 ${baseScore}，淡化「${topDim}」，该方案此项优势未受关注，${sign}${absDiff}分`
     }
-    return `基准 ${baseScore}，你降低「${topDim}」的短板影响，${sign}${absDiff}分`
+    return `基准 ${baseScore}，淡化「${topDim}」，该方案在此项${deltaDesc}，${sign}${absDiff}分`
   }
 
   const scores = computed(() => {
@@ -449,15 +631,16 @@ export function useDecisionModel() {
       for (const [paramName, paramValue] of Object.entries(state.paramValues)) {
         if (state.model.weights[paramName] !== undefined && typeof paramValue === 'number') {
           const delta = dims[paramName] ?? 0
-          // 公式：有快照时用增量 (currentValue - snapshotValue) / 100 × delta × 2
-          // 否则用默认基准 (paramValue/100 - 0.5) × delta × 2
+          const weight = state.model.weights[paramName] ?? 1
+          // 公式：有快照时用增量 (currentValue - snapshotValue) / 100 × delta × 2 × weight
+          // 否则用默认基准 (paramValue/100 - 0.5) × delta × 2 × weight
           let offset
           if (state.snapshotWeights && state.snapshotWeights[paramName] !== undefined) {
-            offset = new Decimal(paramValue).sub(state.snapshotWeights[paramName]).div(100).mul(delta).mul(2)
+            offset = new Decimal(paramValue).sub(state.snapshotWeights[paramName]).div(100).mul(delta).mul(2).mul(weight)
           } else {
             const pv = new Decimal(paramValue).div(100)
             const half = new Decimal(0.5)
-            offset = pv.sub(half).mul(delta).mul(2)
+            offset = pv.sub(half).mul(delta).mul(2).mul(weight)
           }
           shift = shift.add(offset)
         }
@@ -472,6 +655,23 @@ export function useDecisionModel() {
   const previousScores = reactive({})
   const counterfactualActive = ref(false)
   const activeCounterfactual = ref(null)
+
+  /** 从流水线结果中提取 4 阶段 DEVIL 输出 */
+  const pipelineDevil = computed(() => {
+    const steps = state.pipelineResult
+    if (!steps) return null
+    const keys = ['devil-framework', 'devil-model', 'devil-simulate', 'devil-nexus']
+    const result = {}
+    for (const key of keys) {
+      if (steps[key]) result[key] = steps[key]
+    }
+    return Object.keys(result).length > 0 ? result : null
+  })
+
+  /** 从流水线结果中提取 NEXUS 综合报告 */
+  const pipelineNexus = computed(() => {
+    return state.pipelineResult?.nexus || null
+  })
 
   // Recalculate path probabilities based on current param values.
   // Base computation mirrors adaptTree: cumulative product of event probabilities.
@@ -508,8 +708,9 @@ export function useDecisionModel() {
               const userVal = state.paramValues[dim]
               if (userVal !== undefined && typeof userVal === 'number') {
                 // alignment = 1 - |userVal - impactVal| / 100
-                // 1.0 = perfect match, 0.0 = completely opposite
-                alignment = alignment.add(1 - Math.abs(userVal - impactVal) / 100)
+                // 1.0 = perfect match, 0.0 = completely opposite.
+                // impactVal is a delta (e.g. -20..+30); map to preference space [0,100] via baseline=50.
+                alignment = alignment.add(1 - Math.abs(userVal - (50 + impactVal)) / 100)
                 count++
               }
             }
@@ -526,26 +727,63 @@ export function useDecisionModel() {
       const newVal = Math.max(0.01, Math.min(0.99, cumulative.toDecimalPlaces(2).toNumber()))
       state.adjustedProbabilities[path.id] = newVal
     }
+
+    // Step 3: Normalize probabilities so sum ≈ 1.0
+    const total = Object.values(state.adjustedProbabilities).reduce((a, b) => a + b, 0)
+    if (total > 0) {
+      for (const pathId of Object.keys(state.adjustedProbabilities)) {
+        state.adjustedProbabilities[pathId] = Math.round((state.adjustedProbabilities[pathId] / total) * 100) / 100
+      }
+    } else {
+      // Fallback: uniform distribution when all probabilities are 0
+      const uniform = Math.round((1.0 / paths.length) * 100) / 100
+      for (const path of paths) {
+        state.adjustedProbabilities[path.id] = uniform
+      }
+    }
   }
 
-  // Counterfactual scenarios
-  const counterfactuals = [
-    {
-      key: 'growth',
-      label: '如果更看重成长？',
-      paramValues: { '收入预期': 30, '成长空间': 80, '风险指数': 60, '幸福指数': 40, '风险偏好': '激进' },
-    },
-    {
-      key: 'stability',
-      label: '如果更看重稳定？',
-      paramValues: { '收入预期': 80, '成长空间': 30, '风险指数': 20, '幸福指数': 70, '风险偏好': '保守' },
-    },
-    {
-      key: 'happiness',
-      label: '如果更看重幸福？',
-      paramValues: { '收入预期': 40, '成长空间': 40, '风险指数': 30, '幸福指数': 80, '风险偏好': '均衡' },
-    },
-  ]
+  // Counterfactual scenarios (dynamically generated from model variables)
+  function buildCounterfactuals() {
+    if (!state.model?.variables) return []
+    const variables = state.model.variables
+    const sliderVars = variables.filter(v => v.type === 'slider').map(v => v.name)
+
+    if (!sliderVars.length) return []
+
+    console.log('[Counterfactual] 动态生成场景，变量:', sliderVars)
+    return [
+      {
+        key: 'optimistic',
+        label: '如果更看重成长？',
+        paramValues: Object.fromEntries(variables.map(v => {
+          if (v.type === 'slider') return [v.name, 80]
+          const opts = v.options || []
+          return [v.name, opts[opts.length - 1] || opts[0] || '激进']
+        })),
+      },
+      {
+        key: 'stability',
+        label: '如果更看重稳定？',
+        paramValues: Object.fromEntries(variables.map(v => {
+          if (v.type === 'slider') return [v.name, 20]
+          const opts = v.options || []
+          return [v.name, opts[0] || '保守']
+        })),
+      },
+      {
+        key: 'balance',
+        label: '如果更看重平衡？',
+        paramValues: Object.fromEntries(variables.map(v => {
+          if (v.type === 'slider') return [v.name, 50]
+          const opts = v.options || []
+          return [v.name, opts[1] ?? opts[0] ?? '均衡']
+        })),
+      },
+    ]
+  }
+
+  const counterfactuals = computed(() => buildCounterfactuals())
 
   function saveCurrentScores() {
     const current = scores.value
@@ -586,7 +824,7 @@ export function useDecisionModel() {
     return { before: previousScores[option], after: current, diff }
   }
 
-  async function buildModel() {
+  async function buildModel(riskPreference) {
     if (!state.userInput.trim()) return
     // 前端基础校验
     const trimmed = state.userInput.trim()
@@ -602,6 +840,8 @@ export function useDecisionModel() {
     state.loading = true
     // 保存问题，供深度模拟使用
     state.savedInput = state.userInput
+    // 同步风险偏好到 state，供仿真引擎使用
+    state.riskPreference = riskPreference
     try {
       // 先调用校验接口判断是否为有效决策问题
       const validateResult = await validateInput(state.userInput)
@@ -611,7 +851,14 @@ export function useDecisionModel() {
         return
       }
 
-      const result = await createDecisionModel(state.userInput)
+      const result = await createDecisionModel(state.userInput, riskPreference)
+      // 检查校验错误
+      if (result?.errors) {
+        const errorMessages = result.errors.map(e => e.message).join('; ')
+        ElMessage.error('模型校验失败: ' + errorMessages)
+        state.loading = false
+        return
+      }
       // 检查 LLM 是否返回无效输入错误
       if (result?.error === 'invalid_input') {
         ElMessage.warning(result.message || '请描述一个具体的决策问题')
@@ -620,6 +867,12 @@ export function useDecisionModel() {
       }
       // LLM 有时返回数组，解包为单个对象
       const model = Array.isArray(result) ? result[0] : result
+      // 展示 warning
+      if (model.warnings && model.warnings.length > 0) {
+        const warnMessages = model.warnings.map(e => e.message).join('; ')
+        ElMessage.warning({ message: '模型数据存在警告: ' + warnMessages, duration: 5000 })
+        delete model.warnings
+      }
       // 数据清洗：结构格式化 + 语义索引
       const sanitized = sanitizeModel(model) || model
       // 通过适配器标准化 treeData
@@ -644,6 +897,8 @@ export function useDecisionModel() {
       // 默认选中根节点，展示概览视图
       state.selectedNode = null
       selectNode(state.model.treeData)
+      // 模型构建完成后自动保存
+      saveToStorage()
     } finally {
       state.loading = false
     }
@@ -675,9 +930,21 @@ export function useDecisionModel() {
     state.loading = true
     try {
       const result = await refineModel(state.model, state.paramValues, state.savedInput)
+      // 检查校验错误
+      if (result?.errors) {
+        const errorMessages = result.errors.map(e => e.message).join('; ')
+        ElMessage.error('模型校验失败: ' + errorMessages)
+        return
+      }
       // 通过适配器标准化 treeData
       // 数据清洗：结构格式化 + 语义索引
       const sanitized = sanitizeModel(result) || result
+      // 展示 warning
+      if (result.warnings && result.warnings.length > 0) {
+        const warnMessages = result.warnings.map(e => e.message).join('; ')
+        ElMessage.warning({ message: '模型数据存在警告: ' + warnMessages, duration: 5000 })
+        delete result.warnings
+      }
       // 通过适配器标准化 treeData
       sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
       state.model = sanitized
@@ -691,6 +958,8 @@ export function useDecisionModel() {
       selectNode(state.model.treeData)
       counterfactualActive.value = false
       activeCounterfactual.value = null
+      // 模拟完成后自动保存
+      saveToStorage()
     } finally {
       state.loading = false
     }
@@ -858,12 +1127,327 @@ export function useDecisionModel() {
     return scores.value[optionName] ?? 50
   }
 
+  /**
+   * 运行蒙特卡洛仿真，更新 state.model 的仿真结果。
+   */
+  function runDeepSimulation() {
+    if (!state.model) return
+    console.log('[DeepSim] 启动深度仿真，options:', state.model.options, 'variables:', state.model.variables.length)
+    state.loading = true
+    try {
+      const result = runMCFromModel()
+      state.monteCarloResult = result
+      console.log('[DeepSim] 仿真完成，ranking:', result?.ranking)
+      ElMessage.success('蒙特卡洛仿真完成')
+
+      // 自动触发 DEVIL 审查
+      runDevilReview()
+
+      // 仿真完成后自动保存
+      saveToStorage()
+    } finally {
+      state.loading = false
+    }
+  }
+
+  /**
+   * 调用 DEVIL 对抗性审查。
+   */
+  async function runDevilReview() {
+    if (!state.model) return
+    state.devilLoading = true
+    try {
+      const result = await devilReview(
+        state.model,
+        state.monteCarloResult
+      )
+      state.devilResult = result
+      console.log('[Devil] 审查完成，challenges:', result?.challenges?.length, 'bias_flags:', result?.bias_flags?.length)
+    } catch (err) {
+      console.error('[Devil] 审查失败:', err.message)
+    } finally {
+      state.devilLoading = false
+    }
+  }
+
+  /**
+   * 从 state.model 构建仿真参数并运行蒙特卡洛。
+   */
+  function runMCFromModel() {
+    const m = state.model
+    const simSpec = {
+      variables: (m.variables || []).map(v => ({
+        name: v.name,
+        sim_spec: v.sim_spec,
+        weight: m.weights?.[v.name] || 0,
+      })),
+      options: (m.treeData?.children || []).map(child => ({
+        name: child.name,
+        base_score: child.value ?? 50,
+        trade_offs: child.logic_payload?.trade_offs || [],
+        risk_adjustment: child.logic_payload?.risk_adjustment || null,
+      })),
+      riskPreference: state.riskPreference || '均衡',
+    }
+    console.log('[DeepSim] simSpec 构建完成:', JSON.stringify(simSpec.variables.map(v => ({ name: v.name, type: v.sim_spec?.type }))))
+    return runMC(simSpec, 5000)
+  }
+
+  /**
+   * 运行蒙特卡洛仿真（对外暴露，可指定样本数）。
+   */
+  function runMonteCarlo(numSamples = 5000) {
+    if (!state.model) return null
+    const result = runMCFromModel()
+    state.monteCarloResult = result
+    return result
+  }
+
+  /**
+   * 敏感性分析：对每个 slider 变量做 ±20% 扰动，记录排名变化。
+   * 返回：{ stability, gap_pct, rank_flips: [{var, direction, from_rank, to_rank}], current_ranking }
+   */
+  function runSensitivity() {
+    if (!state.model?.variables) return null
+
+    console.group('[Sensitivity] ===== 开始分析 =====')
+    const variables = state.model.variables.filter(v => v.type === 'slider')
+    console.log('[Sensitivity] 变量:', variables.map(v => v.name))
+
+    // Save current param values
+    const savedParamValues = { ...state.paramValues }
+    const options = state.model.options
+
+    // Helper: compute ranking from current paramValues
+    function getCurrentRanking() {
+      const s = scores.value
+      return options
+        .map(name => ({ name, score: s[name] ?? 50 }))
+        .sort((a, b) => b.score - a.score)
+    }
+
+    const baselineRanking = getCurrentRanking()
+    console.log('[Sensitivity] 基准排名:', baselineRanking.map(r => `${r.name}(${r.score})`).join(', '))
+
+    // Gap between 1st and 2nd
+    const gapPct = baselineRanking.length >= 2
+      ? Math.round(((baselineRanking[0].score - baselineRanking[1].score) / baselineRanking[0].score) * 100) / 100
+      : null
+
+    const rankFlips = []
+    const flipCountByVar = {}
+
+    for (const v of variables) {
+      flipCountByVar[v.name] = 0
+      const origVal = savedParamValues[v.name] ?? 50
+
+      for (const direction of [1, -1]) {
+        const perturbedVal = Math.max(0, Math.min(100, origVal + direction * 20))
+        // Temporarily perturb
+        state.paramValues = { ...savedParamValues, [v.name]: perturbedVal }
+        // Force reactive recalc
+        state.paramValues = { ...state.paramValues }
+
+        const perturbedRanking = getCurrentRanking()
+        console.log(`[Sensitivity] ${v.name} ${direction > 0 ? '+' : '-'}20% (val=${perturbedVal}):`, perturbedRanking.map(r => `${r.name}(${r.score})`).join(', '))
+
+        // Check if ranking changed compared to baseline
+        for (let i = 0; i < baselineRanking.length; i++) {
+          if (perturbedRanking[i]?.name !== baselineRanking[i]?.name) {
+            rankFlips.push({
+              var: v.name,
+              direction: direction > 0 ? '+20%' : '-20%',
+              from_rank: baselineRanking.findIndex(r => r.name === perturbedRanking[i]?.name) + 1,
+              to_rank: i + 1,
+              option: perturbedRanking[i]?.name,
+            })
+            flipCountByVar[v.name]++
+          }
+        }
+      }
+
+      // Restore
+      state.paramValues = { ...savedParamValues }
+    }
+
+    // Stability determination
+    const totalPerturbations = variables.length * 2
+    const totalFlips = Object.values(flipCountByVar).reduce((a, b) => a + b, 0)
+    let stability
+    if (totalFlips === 0) {
+      stability = 'stable'
+    } else if (totalFlips <= Math.floor(totalPerturbations / 4)) {
+      stability = 'partially_stable'
+    } else {
+      stability = 'unstable'
+    }
+
+    const result = {
+      stability,
+      gap_pct: gapPct,
+      rank_flips: rankFlips,
+      flip_count_by_var: flipCountByVar,
+      total_flips: totalFlips,
+      total_perturbations: totalPerturbations,
+      current_ranking: baselineRanking.map((r, i) => ({ ...r, rank: i + 1 })),
+    }
+
+    state.model.sensitivity = result
+    console.log('[Sensitivity] 结果:', result)
+    console.groupEnd()
+
+    return result
+  }
+
+  /**
+   * 运行多 Agent 流水线。
+   * 使用 fetch + EventSource 风格接收 SSE 流式进度。
+   * 如果传入 currentModel，则进入深度验证模式（保持 options/weights 不变）。
+   */
+  async function runPipeline(currentModel) {
+    if (!state.userInput.trim() && !currentModel) return
+    const mode = currentModel ? 'deep-validation' : 'quick-build'
+    console.log('[Pipeline] 启动完整流水线', currentModel ? '(深度验证模式)' : '')
+    state.loading = true
+    state.pipelineStatus = 'running'
+    state.pipelineCompletedSteps = []
+    state.pipelineId = null
+    state.pipelineMode = mode
+
+    try {
+      const response = await runFullPipeline(state.userInput, currentModel || null)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            // event type line
+          } else if (line.startsWith('data:')) {
+            try {
+              const data = JSON.parse(line.slice(5).trim())
+              if (data.pipelineId) {
+                state.pipelineId = data.pipelineId
+              }
+              if (data.step && data.status === 'running') {
+                // DEVIL steps run in background, skip visible progress
+                if (data.step.startsWith('devil-')) continue
+                state.pipelineCurrentStep = data.step
+                console.log(`[Pipeline] Step "${data.step}" running`)
+              } else if (data.step && data.status === 'completed') {
+                if (data.step.startsWith('devil-')) continue
+                state.pipelineCurrentStep = data.step
+                state.pipelineCompletedSteps = [...state.pipelineCompletedSteps, data.step]
+                console.log(`[Pipeline] Step "${data.step}" completed`)
+              } else if (data.steps) {
+                // Complete event
+                state.pipelineStatus = 'completed'
+                state.pipelineCurrentStep = null
+                state.pipelineResult = data.steps
+                console.log('[Pipeline] 流水线完成')
+
+                // 提取 build-model 结果作为模型
+                if (data.steps['build-model']) {
+                  const model = data.steps['build-model']
+                  const sanitized = sanitizeModel(model) || model
+                  sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
+                  state.model = sanitized
+                  state.paramValues = {}
+                  for (const v of sanitized.variables || []) {
+                    if (v.type === 'select') {
+                      state.paramValues[v.name] = v.options?.[1] ?? v.options?.[0] ?? '均衡'
+                    } else {
+                      state.paramValues[v.name] = 50
+                    }
+                  }
+                  state.adjustedProbabilities = {}
+                  for (const path of sanitized.paths || []) {
+                    state.adjustedProbabilities[path.id] = path.probability
+                  }
+                  state.model.treeData._version = 0
+                  state.selectedNode = null
+                  selectNode(state.model.treeData)
+                  // 流水线完成后自动触发蒙特卡洛仿真和 DEVIL 审查
+                  runDeepSimulation()
+                }
+                ElMessage.success('多 Agent 流水线完成')
+              }
+            } catch { /* skip parse errors */ }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Pipeline] 流水线失败:', err.message)
+      state.pipelineStatus = 'failed'
+      ElMessage.error('流水线执行失败: ' + err.message)
+    } finally {
+      state.loading = false
+    }
+  }
+
+  /**
+   * 深度验证：基于已有模型，通过 5 步流水线做增强验证。
+   */
+  async function runDeepValidation() {
+    if (!state.model) {
+      ElMessage.warning('请先输入决策问题并点击快速建模')
+      return
+    }
+    // 复用 runPipeline，传入 currentModel 触发深度验证模式
+    await runPipeline(state.model)
+  }
+
+  /**
+   * 更新用户风险偏好，触发仿真重新计算。
+   */
+  function setRiskPreference(pref) {
+    state.riskPreference = pref
+    // 重新运行仿真以反映新的风险偏好
+    if (state.model && state.monteCarloResult) {
+      runMonteCarlo()
+    }
+  }
+
+  /**
+   * 重新生成模型：清空当前模型数据，保留用户输入。
+   */
+  function resetModel() {
+    state.model = null
+    state.selectedNode = null
+    state.monteCarloResult = null
+    state.devilResult = null
+    state.devilLoading = false
+    state.paramValues = {}
+    state.adjustedProbabilities = {}
+    state.snapshotWeights = null
+    state.pipelineId = null
+    state.pipelineStatus = 'idle'
+    state.pipelineCurrentStep = null
+    state.pipelineCompletedSteps = []
+    state.pipelineResult = null
+    state.riskPreference = '均衡'
+    counterfactualActive.value = false
+    activeCounterfactual.value = null
+    ElMessage.info('模型已清空，请重新输入问题并点击快速建模')
+  }
+
   return {
     state,
     scores,
+    pipelineDevil,
+    pipelineNexus,
     buildModel,
     recalcScores,
-    runSimulation,
+    runDeepSimulation,
+    runDevilReview,
     recalcProbabilities,
     selectNode,
     counterfactuals,
@@ -874,5 +1458,12 @@ export function useDecisionModel() {
     getScoreDiff,
     getAdjustedScore,
     getScoreAttribution,
+    runMonteCarlo,
+    runSensitivity,
+    runPipeline,
+    runDeepValidation,
+    resetModel,
+    clearStorage,
+    setRiskPreference,
   }
 }

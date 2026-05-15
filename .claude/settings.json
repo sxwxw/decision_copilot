@@ -61,7 +61,9 @@
       "Bash(git remote *)",
       "Bash(ssh -T git@gitlab.longshine.com)",
       "Bash(ssh -i ~/.ssh/id_ed25519_gitlab -T git@gitlab.longshine.com)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Skill(openspec-propose)",
+      "Skill(openspec-propose:*)"
     ],
     "deny": [
       "Bash(git push *)",

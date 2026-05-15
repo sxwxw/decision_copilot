@@ -8,43 +8,32 @@
     {
       "name": "学习成本",
       "type": "slider",
-      "range": [
-        0,
-        100
-      ]
+      "range": [0, 100],
+      "sim_spec": { "type": "normal", "params": { "mean": 60, "sd": 15 } }
     },
     {
       "name": "生态支持",
       "type": "slider",
-      "range": [
-        0,
-        100
-      ]
+      "range": [0, 100],
+      "sim_spec": { "type": "normal", "params": { "mean": 70, "sd": 12 } }
     },
     {
       "name": "集成难度",
       "type": "slider",
-      "range": [
-        0,
-        100
-      ]
+      "range": [0, 100],
+      "sim_spec": { "type": "lognormal", "params": { "mean": 55, "sd": 18 } }
     },
     {
       "name": "团队适配",
       "type": "slider",
-      "range": [
-        0,
-        100
-      ]
+      "range": [0, 100],
+      "sim_spec": { "type": "triangular", "params": { "min": 30, "mode": 65, "max": 90 } }
     },
     {
       "name": "风险偏好",
       "type": "select",
-      "options": [
-        "保守",
-        "均衡",
-        "激进"
-      ]
+      "options": ["保守", "均衡", "激进"],
+      "sim_spec": { "type": "categorical", "params": { "values": ["保守", "均衡", "激进"], "probabilities": [0.25, 0.5, 0.25] } }
     }
   ],
   "weights": {
@@ -93,6 +82,11 @@
             }
           ],
           "opportunity_cost": "大型应用状态管理复杂度增加"
+        },
+        "risk_adjustment": {
+          "保守": { "offset": 5 },
+          "均衡": { "offset": 0 },
+          "激进": { "offset": -3 }
         },
         "children": [
           {
@@ -169,6 +163,11 @@
           ],
           "opportunity_cost": "配置复杂导致初期启动慢"
         },
+        "risk_adjustment": {
+          "保守": { "offset": -5 },
+          "均衡": { "offset": 0 },
+          "激进": { "offset": 5 }
+        },
         "children": [
           {
             "name": "灵活扩展",
@@ -243,6 +242,11 @@
             }
           ],
           "opportunity_cost": "体积较大影响首屏加载"
+        },
+        "risk_adjustment": {
+          "保守": { "offset": -3, "probability_factor": 0.95 },
+          "均衡": { "offset": 0, "probability_factor": 1.0 },
+          "激进": { "offset": 3, "probability_factor": 1.05 }
         },
         "children": [
           {

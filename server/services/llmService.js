@@ -66,3 +66,27 @@ export async function callQwen(systemPrompt, userPrompt, model, retries = 2, ena
     }
   }
 }
+
+/**
+ * Lightweight LLM availability check via a minimal API call.
+ */
+export async function checkLlmAvailability() {
+  if (!API_KEY) return false
+  try {
+    const res = await fetch(QWEN_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: QWEN_MODEL,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}

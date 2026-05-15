@@ -1,19 +1,17 @@
 <script setup>
 import { computed } from 'vue'
-import { ElButton } from 'element-plus'
+import { ElButton, ElMessageBox, ElMessage } from 'element-plus'
 import ParamSlider from '../common/ParamSlider.vue'
-import ParamSelect from '../common/ParamSelect.vue'
 
 const props = defineProps({
   model: { type: Object, default: null },
   paramValues: { type: Object, required: true },
 })
 
-const emit = defineEmits(['updateParam', 'recalc', 'reset'])
+const emit = defineEmits(['updateParam', 'reset', 'clearCache'])
 
 const componentMap = {
   slider: ParamSlider,
-  select: ParamSelect,
 }
 
 function onUpdate(name, value) {
@@ -30,6 +28,20 @@ const hasDeviation = computed(() => {
     return false
   })
 })
+
+async function onClearCache() {
+  try {
+    await ElMessageBox.confirm('确定要清除本地缓存吗？此操作不可撤销。', '确认清除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    emit('clearCache')
+    ElMessage.success('缓存已清除')
+  } catch {
+    // user cancelled
+  }
+}
 </script>
 
 <template>
@@ -47,11 +59,11 @@ const hasDeviation = computed(() => {
     <div v-else class="param-placeholder">
       <p>提交决策问题后，参数面板将自动生成</p>
     </div>
-    <div v-if="model" class="simulate-wrapper">
-      <el-button type="primary" :plain="!hasDeviation" :class="['btn-recalc', { 'btn-breathe': hasDeviation }]"
-        @click="emit('recalc')">
-        深度模拟
-      </el-button>
+    <div v-if="model" class="param-footer-hint">
+      <p class="hint-text">调整参数后，点击左侧「深度验证」按钮进行完整推演</p>
+    </div>
+    <div class="cache-actions">
+      <el-button text size="small" @click="onClearCache">清除缓存</el-button>
     </div>
   </div>
 </template>
@@ -129,36 +141,22 @@ h3 {
   padding: 20px 16px;
 }
 
-.simulate-wrapper {
+.param-footer-hint {
   flex-shrink: 0;
   padding: 8px 16px 0;
   border-top: 1px solid var(--border, #e5e7eb);
 }
 
-.btn-recalc {
-  width: 100%;
-  transition: all 0.3s ease;
+.hint-text {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
 }
 
-.btn-breathe {
-  background-color: var(--el-color-primary) !important;
-  color: #fff !important;
-  border-color: var(--el-color-primary) !important;
-  animation: breathe 2s ease-in-out 2;
-  animation-fill-mode: forwards;
-}
-
-@keyframes breathe {
-
-  0%,
-  100% {
-    box-shadow: 0 0 4px rgba(64, 158, 255, 0.2);
-    transform: scale(1);
-  }
-
-  50% {
-    box-shadow: 0 0 12px rgba(64, 158, 255, 0.5);
-    transform: scale(1.02);
-  }
+.cache-actions {
+  padding: 4px 16px 8px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

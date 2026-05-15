@@ -2,6 +2,9 @@
 import { computed, ref, h, render } from 'vue'
 import { ElTag, ElEmpty, ElAlert } from 'element-plus'
 import ForkComparison from './ForkComparison.vue'
+import DevilReview from './DevilReview.vue'
+import SensitivityAnalysis from './SensitivityAnalysis.vue'
+import NexusReport from './NexusReport.vue'
 import ReportTemplate from './ReportTemplate.vue'
 import { exportReportToPdf } from '../../utils/exportReport'
 
@@ -30,7 +33,24 @@ const props = defineProps({
   userInput: { type: String, default: '' },
   /** 所有方案列表（用于报告导出） */
   allOptions: { type: Array, default: () => [] },
+  /** 蒙特卡洛仿真结果 */
+  monteCarloResult: { type: Object, default: null },
+  /** DEVIL 对抗性审查结果 */
+  devilResult: { type: Object, default: null },
+  /** 流水线产出的 4 阶段 DEVIL 结果 */
+  pipelineDevil: { type: Object, default: null },
+  /** 流水线产出的 NEXUS 综合报告 */
+  pipelineNexus: { type: Object, default: null },
+  /** DEVIL 审查加载中 */
+  devilLoading: { type: Boolean, default: false },
+  /** 敏感性分析结果 */
+  sensitivity: { type: Object, default: null },
 })
+
+/** 概览模式下当前 tab：'detail' | 'sensitivity' | 'devil' */
+const overviewTab = ref('detail')
+
+const emit = defineEmits(['devilRerun', 'sensitivityRun'])
 
 const STATUS_MAP = {
   positive: { type: 'success', label: '+' },
@@ -62,6 +82,14 @@ const isOverview = computed(() => props.viewMode === 'overview')
 /** 增量分析文案（深度模拟后展示） */
 const deltaAnalysis = computed(() => {
   return props.recommendation?.delta_analysis || ''
+})
+
+/** 蒙特卡洛仿真结果摘要（全局概览模式下展示） */
+const mcSummary = computed(() => {
+  const mc = props.monteCarloResult
+  if (!mc || !mc.optionResults) return null
+  console.log('[PathDetail] 蒙特卡洛结果展示:', mc.ranking)
+  return mc
 })
 
 /** 全局概览：所有方案列表 */
@@ -241,6 +269,37 @@ function getDeltaDirection(step) {
       show-icon
       class="delta-analysis-alert"
     />
+
+    <!-- Tab switcher -->
+    <div class="overview-tabs">
+      <button
+        :class="['overview-tab', { active: overviewTab === 'detail' }]"
+        @click="overviewTab = 'detail'"
+      >
+        路径详情
+      </button>
+      <button
+        :class="['overview-tab', { active: overviewTab === 'sensitivity' }]"
+        @click="overviewTab = 'sensitivity'"
+      >
+        敏感性分析
+      </button>
+      <button
+        :class="['overview-tab', { active: overviewTab === 'devil' }]"
+        @click="overviewTab = 'devil'"
+      >
+        审查
+      </button>
+      <button
+        :class="['overview-tab', { active: overviewTab === 'nexus' }]"
+        @click="overviewTab = 'nexus'"
+      >
+        综合报告
+      </button>
+    </div>
+
+    <!-- Detail tab -->
+    <template v-if="overviewTab === 'detail'">
     <h3 class="path-title">方案概览</h3>
     <div class="option-list">
       <div
@@ -282,6 +341,47 @@ function getDeltaDirection(step) {
       <h4 class="analysis-title">分析</h4>
       <p>{{ recommendation.analysis }}</p>
     </div>
+
+    <!-- 蒙特卡洛仿真结果 -->
+    <div v-if="mcSummary" class="monte-carlo-card">
+      <h4 class="mc-title">蒙特卡洛仿真（P10 / P50 / P90）</h4>
+      <div class="mc-table">
+        <div v-for="item in mcSummary.ranking" :key="item.name" class="mc-row">
+          <span class="mc-rank">#{{ item.rank }}</span>
+          <span class="mc-name">{{ item.name }}</span>
+          <span class="mc-stat">
+            P10: <strong>{{ mcSummary.optionResults[item.name]?.p10 ?? '-' }}</strong>
+          </span>
+          <span class="mc-stat mc-median">
+            P50: <strong>{{ mcSummary.optionResults[item.name]?.p50 ?? '-' }}</strong>
+          </span>
+          <span class="mc-stat">
+            P90: <strong>{{ mcSummary.optionResults[item.name]?.p90 ?? '-' }}</strong>
+          </span>
+          <span class="mc-sigma">σ = {{ mcSummary.optionResults[item.name]?.sigma ?? '-' }}</span>
+        </div>
+      </div>
+    </div>
+    </template>
+
+    <!-- Sensitivity analysis tab -->
+    <template v-else-if="overviewTab === 'sensitivity'">
+      <SensitivityAnalysis
+        :sensitivity="sensitivity"
+        :options="options"
+        @run="emit('sensitivityRun')"
+      />
+    </template>
+
+    <!-- Devil review tab -->
+    <template v-else-if="overviewTab === 'devil'">
+      <DevilReview :devil-result="devilResult" :pipeline-devil="pipelineDevil" :loading="devilLoading" @rerun="emit('devilRerun')" />
+    </template>
+
+    <!-- Nexus report tab -->
+    <template v-else-if="overviewTab === 'nexus'">
+      <NexusReport :nexus="pipelineNexus" />
+    </template>
   </div>
 
   <!-- 分叉对比 -->
@@ -741,6 +841,72 @@ function getDeltaDirection(step) {
   margin: 0;
 }
 
+/* 蒙特卡洛仿真结果 */
+.monte-carlo-card {
+  margin-top: 12px;
+  background: var(--code-bg, #f9fafb);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.mc-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: var(--text-h, #1a1a2e);
+}
+
+.mc-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.mc-rank {
+  font-weight: 700;
+  color: var(--accent, #3b82f6);
+  min-width: 28px;
+}
+
+.mc-name {
+  font-weight: 600;
+  color: var(--text-h, #1a1a2e);
+  min-width: 60px;
+}
+
+.mc-stat {
+  color: #64748b;
+}
+
+.mc-stat strong {
+  color: var(--text-h, #1a1a2e);
+}
+
+.mc-stat.mc-median {
+  color: var(--accent, #3b82f6);
+}
+
+.mc-stat.mc-median strong {
+  color: var(--accent, #3b82f6);
+}
+
+.mc-sigma {
+  margin-left: auto;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 .delta-analysis-alert {
   margin-bottom: 12px;
 }
@@ -752,5 +918,36 @@ function getDeltaDirection(step) {
   align-items: center;
   justify-content: center;
   height: 100%;
+}
+
+/* Tab switcher */
+.overview-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0;
+}
+
+.overview-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -1px;
+}
+
+.overview-tab:hover {
+  color: var(--accent, #3b82f6);
+}
+
+.overview-tab.active {
+  color: var(--accent, #3b82f6);
+  border-bottom-color: var(--accent, #3b82f6);
+  font-weight: 600;
 }
 </style>

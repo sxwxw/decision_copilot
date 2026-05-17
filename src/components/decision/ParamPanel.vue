@@ -8,7 +8,7 @@ const props = defineProps({
   paramValues: { type: Object, required: true },
 })
 
-const emit = defineEmits(['updateParam', 'reset', 'clearCache'])
+const emit = defineEmits(['updateParam', 'reset'])
 
 const componentMap = {
   slider: ParamSlider,
@@ -48,7 +48,7 @@ async function onClearCache() {
   <div class="param-panel">
     <div class="panel-header">
       <h3>参数调整</h3>
-      <button v-if="model && hasDeviation" class="btn-reset" @click="emit('reset')">重置</button>
+      <button v-if="model" class="btn-reset" :class="{ 'has-deviation': hasDeviation }" @click="emit('reset')">重置</button>
     </div>
     <div v-if="model" class="params-container">
       <div class="params-list">
@@ -58,12 +58,6 @@ async function onClearCache() {
     </div>
     <div v-else class="param-placeholder">
       <p>提交决策问题后，参数面板将自动生成</p>
-    </div>
-    <div v-if="model" class="param-footer-hint">
-      <p class="hint-text">调整参数后，点击左侧「深度验证」按钮进行完整推演</p>
-    </div>
-    <div class="cache-actions">
-      <el-button text size="small" @click="onClearCache">清除缓存</el-button>
     </div>
   </div>
 </template>
@@ -105,6 +99,10 @@ h3 {
   background: rgba(59, 130, 246, 0.06);
 }
 
+.btn-reset.has-deviation {
+  color: var(--accent, #3b82f6);
+}
+
 .params-container {
   width: 100%;
   height: 300px;
@@ -139,24 +137,5 @@ h3 {
   color: #999;
   font-size: 13px;
   padding: 20px 16px;
-}
-
-.param-footer-hint {
-  flex-shrink: 0;
-  padding: 8px 16px 0;
-  border-top: 1px solid var(--border, #e5e7eb);
-}
-
-.hint-text {
-  font-size: 12px;
-  color: #94a3b8;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.cache-actions {
-  padding: 4px 16px 8px;
-  display: flex;
-  justify-content: flex-end;
 }
 </style>

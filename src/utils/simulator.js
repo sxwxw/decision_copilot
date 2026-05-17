@@ -17,6 +17,7 @@ export function validateSimSpec(spec) {
         && p.min <= p.mode && p.mode <= p.max
     case 'beta':
       return typeof p.alpha === 'number' && typeof p.beta === 'number' && p.alpha > 0 && p.beta > 0
+        && isFinite(p.alpha) && isFinite(p.beta) && p.alpha < 1000 && p.beta < 1000
     case 'uniform':
       return typeof p.min === 'number' && typeof p.max === 'number' && p.min < p.max
     case 'bernoulli':
@@ -99,10 +100,15 @@ function sampleBernoulli(params) {
 }
 
 function sampleCategorical(params) {
-  const u = rand()
+  // Normalize probabilities before sampling to avoid bias
+  const probs = params.probabilities
+  const total = probs.reduce((a, b) => a + b, 0)
+  const normalized = total > 0 ? probs.map(p => p / total) : probs.map(() => 1 / probs.length)
+
+  const u = Math.random()
   let cum = 0
   for (let i = 0; i < params.values.length; i++) {
-    cum += params.probabilities[i]
+    cum += normalized[i]
     if (u <= cum) return params.values[i]
   }
   return params.values[params.values.length - 1]
@@ -136,6 +142,14 @@ export function runMonteCarlo(simSpec, numSamples = 5000) {
   const varMap = {}
   for (const v of variables) {
     const spec = v.sim_spec || { type: 'uniform', params: { min: 0, max: 100 } }
+    // Clamp Beta parameters to prevent extreme values
+    if (spec.type === 'beta' && spec.params) {
+      spec.params = {
+        ...spec.params,
+        alpha: Math.min(spec.params.alpha, 100),
+        beta: Math.min(spec.params.beta, 100),
+      }
+    }
     if (!validateSimSpec(spec)) {
       console.warn('[MonteCarlo] 变量 "' + v.name + '" sim_spec 无效，回退到 uniform[0,100]', spec)
       varMap[v.name] = { type: 'uniform', params: { min: 0, max: 100 }, weight: v.weight || 0 }

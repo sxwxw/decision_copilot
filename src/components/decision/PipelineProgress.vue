@@ -7,6 +7,11 @@ const props = defineProps({
   currentStep: { type: String, default: null },
   completedSteps: { type: Array, default: () => [] },
   mode: { type: String, default: 'quick-build' }, // quick-build | deep-validation
+  innerLoopCount: { type: Number, default: 0 },
+  outerLoopCount: { type: Number, default: 0 },
+  innerLoopSkipped: { type: Boolean, default: false },
+  outerLoopSkipped: { type: Boolean, default: false },
+  outerLoopLowConfidence: { type: Boolean, default: false },
 })
 
 // Visible steps only (DEVIL steps run in background)
@@ -23,6 +28,22 @@ const stepLabels = {
   nexus: '综合报告',
 }
 
+const loopStatusText = computed(() => {
+  if (props.innerLoopCount > 0) {
+    return '内回路已校准 1 次'
+  }
+  if (props.outerLoopCount > 0) {
+    if (props.outerLoopLowConfidence) {
+      return '外回路已重塑，置信度仍偏低'
+    }
+    return '外回路已重塑 1 次'
+  }
+  if (props.innerLoopSkipped) {
+    return '内回路已跳过（已达上限）'
+  }
+  return ''
+})
+
 const progressPct = computed(() => {
   if (props.status === 'completed') return 100
   const idx = steps.indexOf(props.currentStep)
@@ -35,12 +56,16 @@ const progressPct = computed(() => {
   <div class="pipeline-progress">
     <div class="pipeline-header">
       <span class="pipeline-title">{{ mode === 'deep-validation' ? '深度验证' : '多 Agent 流水线' }}</span>
-      <el-tag
-        :type="status === 'completed' ? 'success' : status === 'failed' ? 'danger' : status === 'running' ? '' : 'info'"
-        size="small"
-      >
-        {{ status === 'idle' ? '未启动' : status === 'running' ? '运行中' : status === 'completed' ? '已完成' : '失败' }}
-      </el-tag>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <el-tag
+          :type="status === 'completed' ? 'success' : status === 'failed' ? 'danger' : status === 'running' ? '' : 'info'"
+          size="small"
+        >
+          {{ status === 'idle' ? '未启动' : status === 'running' ? '运行中' : status === 'completed' ? '已完成' : '失败' }}
+        </el-tag>
+        <el-tag v-if="innerLoopCount > 0" type="warning" size="small">内回路已校准</el-tag>
+        <el-tag v-if="outerLoopCount > 0" type="danger" size="small">外回路已重塑</el-tag>
+      </div>
     </div>
 
     <!-- Progress bar -->
@@ -62,6 +87,11 @@ const progressPct = computed(() => {
         </div>
         <span class="pipeline-step-label">{{ stepLabels[step] }}</span>
       </div>
+    </div>
+
+    <!-- Loop status text -->
+    <div v-if="loopStatusText" class="loop-status-text">
+      {{ loopStatusText }}
     </div>
   </div>
 </template>
@@ -159,5 +189,12 @@ const progressPct = computed(() => {
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
   50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+}
+
+.loop-status-text {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #d97706;
+  font-weight: 500;
 }
 </style>

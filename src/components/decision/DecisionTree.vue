@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import * as d3 from 'd3'
+import { PROBABILITY_LABELS } from '../../shared/qualitativeMap.js'
 
 /**
  * 通用决策树可视化组件 — 只管画图，不管业务
@@ -19,6 +20,7 @@ const props = defineProps({
   treeData: { type: Object, default: null },
   selectedNode: { type: Object, default: null },
   adjustedProbMap: { type: Object, default: () => ({}) },
+  paths: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['nodeClick'])
@@ -39,14 +41,31 @@ const STATUS_COLORS = {
   neutral: '#9ca3af',    // 向后兼容旧字段
 }
 
-// Resolve adjusted probability from a node's pathIds
-function resolveAdjustedProb(node) {
-  const map = props.adjustedProbMap
-  if (!map || !Object.keys(map).length) return null
+// Resolve conditional probability from paths[].timeline (条件概率：给定父节点后该事件发生的概率)
+function resolveConditionalProb(node) {
+  if (!props.paths || !props.paths.length) return null
   const pathIds = node.data.pathIds || []
   for (const pid of pathIds) {
-    if (map[pid] != null) return map[pid]
+    const path = props.paths.find(p => p.id === pid)
+    if (path) {
+      const timelineEntry = path.timeline?.find(t => t.event === node.data.name)
+      if (timelineEntry) {
+        return timelineEntry.probability ?? PROBABILITY_LABELS[timelineEntry.probability_label]?.base ?? null
+      }
+    }
   }
+  return null
+}
+
+// Resolve final display probability: conditional > node.probability > hidden
+function resolveDisplayProb(node) {
+  // 根节点、选项节点不展示概率
+  if (node.data.step <= 1) return null
+  // 尝试从 paths[].timeline 取条件概率
+  const conditional = resolveConditionalProb(node)
+  if (conditional != null) return conditional
+  // 如果没有 pathIds 匹配，用节点自带的 probability
+  if (node.data.probability != null) return node.data.probability
   return null
 }
 
@@ -116,8 +135,7 @@ function renderTree() {
     .attr('y', d => (d.source.x + d.target.x) / 2 - 8)
     .attr('text-anchor', 'middle')
     .text(d => {
-      const adjusted = resolveAdjustedProb(d.target)
-      const p = adjusted != null ? adjusted : d.target.data.probability
+      const p = resolveDisplayProb(d.target)
       return p != null ? `P=${(p * 100).toFixed(0)}%` : ''
     })
 
@@ -177,7 +195,6 @@ function renderTree() {
   if (props.selectedNode && root) {
     const target = root.descendants().find(n => n.data.id === props.selectedNode.id)
     if (target) {
-      console.log('[DecisionTree] restoring highlight for node:', target.data.name, 'step:', target.data.step)
       highlight(target)
     } else {
       console.warn('[DecisionTree] could not find highlight target after re-render:', props.selectedNode.id, props.selectedNode.name)
@@ -234,23 +251,21 @@ watch(
   }
 )
 
+// Watch for structural changes or probability updates — triggers full re-render
 watch(
-  () => props.treeData,
-  (val) => {
-    if (val) renderTree()
-  },
+  () => JSON.stringify(props.treeData?.children),
+  () => { if (props.treeData) renderTree() },
   { deep: true }
 )
 
-// 独立监听概率映射，只更新标签文本，不重绘整棵树
+// Watch probability map changes (for Monte Carlo updates) — re-render labels with new values
 watch(
   () => props.adjustedProbMap,
   () => {
     if (!gLabels) return
     gLabels.selectAll('.d3-link-label')
       .text(d => {
-        const adjusted = resolveAdjustedProb(d.target)
-        const p = adjusted != null ? adjusted : d.target.data.probability
+        const p = resolveDisplayProb(d.target)
         return p != null ? `P=${(p * 100).toFixed(0)}%` : ''
       })
   },

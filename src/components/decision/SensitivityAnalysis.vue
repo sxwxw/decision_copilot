@@ -6,8 +6,6 @@ const props = defineProps({
   options: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['run'])
-
 const stabilityLabel = {
   stable: '排名稳定',
   partially_stable: '部分稳定',
@@ -32,8 +30,7 @@ const unstableVars = computed(() => {
 <template>
   <div class="sensitivity-analysis">
     <div v-if="!sensitivity" class="sensitivity-empty">
-      <p>分析对每个变量的 ±20% 扰动对排名的影响。</p>
-      <button class="sensitivity-run-btn" @click="emit('run')">运行敏感性分析</button>
+      <p class="sensitivity-hint-text">对每个变量做 ±20% 扰动，观察排名是否发生变化。</p>
     </div>
 
     <template v-else>
@@ -89,9 +86,6 @@ const unstableVars = computed(() => {
       <p v-if="!unstableVars.length && sensitivity.total_flips === 0" class="sensitivity-stable-hint">
         所有变量在 ±20% 扰动下均未引起排名变化，说明当前结果较为稳健。
       </p>
-
-      <!-- Re-run button -->
-      <button class="sensitivity-rerun-btn" @click="emit('run')">重新分析</button>
     </template>
   </div>
 </template>
@@ -118,22 +112,9 @@ const unstableVars = computed(() => {
   color: #94a3b8;
 }
 
-.sensitivity-run-btn,
-.sensitivity-rerun-btn {
-  margin-top: 12px;
-  padding: 8px 20px;
-  background: var(--accent, #3b82f6);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
+.sensitivity-hint-text {
+  margin: 0 0 8px;
   font-size: 13px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.sensitivity-run-btn:hover,
-.sensitivity-rerun-btn:hover {
-  opacity: 0.9;
 }
 
 .sensitivity-stability-row {

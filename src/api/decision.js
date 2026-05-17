@@ -59,13 +59,14 @@ export async function runBuildModel(userInput, frameworkResult, pipelineId) {
   return data
 }
 
-export async function runFullPipeline(userInput, currentModel) {
+export async function runFullPipeline(userInput, currentModel, riskPreference, { signal } = {}) {
   // SSE endpoint - returns EventSource compatible stream
   // If currentModel is provided, enters deep-validation mode
   return fetch('/api/decision/full-pipeline', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userInput, currentModel }),
+    body: JSON.stringify({ userInput, currentModel, riskPreference }),
+    signal,
   })
 }
 
@@ -76,5 +77,11 @@ export async function getPipelineState(pipelineId) {
 
 export async function resumePipeline(pipelineId) {
   const { data } = await apiClient.post(`/api/decision/pipeline/${pipelineId}/resume`)
+  return data
+}
+
+export async function correctModel(pipelineId, paramValues) {
+  const { data, status } = await apiClient.post('/api/decision/correct-model', { pipelineId, paramValues })
+  if (status === 400) return { errors: data.errors }
   return data
 }

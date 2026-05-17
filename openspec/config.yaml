@@ -22,6 +22,7 @@ context: |
     - Vue 3 使用 <script setup> + Composables 管理状态（不引入 Pinia）
     - 前端开发阶段使用 mock JSON 对齐真实接口结构
     - Vite proxy 转发 /api/* 到 Express 后端
+    - 编写代码时需遵循claude.md中所规定原则
 
 # 每个工件的规则
 rules:

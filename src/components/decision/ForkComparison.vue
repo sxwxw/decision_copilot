@@ -8,8 +8,8 @@ const props = defineProps({
   node: { type: Object, default: null },
   /** 用户当前最高权重的偏好参数 */
   topParam: { type: String, default: '' },
-  /** 调整后概率映射 pathId -> probability */
-  adjustedProbMap: { type: Object, default: () => ({}) },
+  /** 获取调参后动态分数 */
+  getAdjustedScore: { type: Function, default: () => 50 },
 })
 
 /** 从 pathChain 中提取面包屑路径（不含当前节点） */
@@ -18,15 +18,10 @@ const breadcrumb = computed(() => props.pathChain.slice(0, -1))
 /** 当前节点的子分支列表 */
 const branches = computed(() => props.node?.children || [])
 
-/** 获取子节点调整后的概率（优先 adjustedProbMap，fallback 到基准概率） */
+/** 获取子节点的条件概率（取自节点自身的 probability，即 LLM 评估的条件概率） */
 function getAdjustedChildProb(child) {
-  const map = props.adjustedProbMap
-  if (!map || !Object.keys(map).length) return child.probability ?? 0
-  const pathIds = child.pathIds || []
-  for (const pid of pathIds) {
-    if (map[pid] != null) return map[pid]
-  }
-  return child.probability ?? 0
+  if (child.probability === null || child.probability === undefined) return null
+  return child.probability
 }
 function getBranchTradeoffs(child) {
   return child.logic_payload?.trade_offs || props.node?.logic_payload?.trade_offs || []
@@ -149,11 +144,11 @@ const suggestion = computed(() => {
         <div class="fork-stats">
           <div class="fork-stat">
             <span class="fork-stat-label">概率</span>
-            <span class="fork-stat-value">{{ ((getAdjustedChildProb(child)) * 100).toFixed(0) }}%</span>
+            <span class="fork-stat-value">{{ getAdjustedChildProb(child) != null ? ((getAdjustedChildProb(child)) * 100).toFixed(0) + '%' : '-' }}</span>
           </div>
           <div class="fork-stat">
             <span class="fork-stat-label">分值</span>
-            <span class="fork-stat-value">{{ child.score ?? 50 }}</span>
+            <span class="fork-stat-value">{{ getAdjustedScore(child.name) !== 50 ? getAdjustedScore(child.name) : (child.score ?? 50) }}</span>
           </div>
         </div>
 

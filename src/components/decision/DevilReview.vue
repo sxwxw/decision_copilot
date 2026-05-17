@@ -247,7 +247,7 @@ const legacyLoserDef = computed(() => {
     <!-- Empty / Re-run -->
     <div v-if="!isPipelineMode && !devilResult" class="devil-empty">
       <p v-if="loading">审查中...</p>
-      <p v-else>尚无审查结果，请先快速建模。</p>
+      <p v-else>尚无审查结果，请先开始推演。</p>
       <el-button class="devil-rerun-btn" :loading="loading" :disabled="loading" @click="emit('rerun')">运行审查</el-button>
     </div>
     <el-button v-if="!isPipelineMode && devilResult" class="devil-rerun-btn" :loading="loading" :disabled="loading" @click="emit('rerun')">重新审查</el-button>

@@ -22,12 +22,7 @@
       "Bash(mkdir -p *)",
       "Bash(openspec-cn *)",
       "Read(**/.claude/projects/**)",
-      "Bash(curl -s -X POST http://127.0.0.1:5176/api/decision/model -H 'Content-Type: application/json' -d '{\"userInput\":\"test\"}' -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s -X POST http://127.0.0.1:5177/api/decision/model -H 'Content-Type: application/json' -d '{\"userInput\":\"test\"}')",
-      "Bash(curl -s http://127.0.0.1:5177/ -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s http://127.0.0.1:3000/api/health -o /dev/null -w \"%{http_code}\")",
-      "Bash(curl -s -X POST http://localhost:3000/api/decision/model -H 'Content-Type: application/json' -d '{\"userInput\":\"我该不该去留学？\"}')",
-      "Bash(curl -s -X POST http://localhost:3000/api/decision/model -H 'Content-Type: application/json' -d '{\"userInput\":\"我该不该去留学？\"}' -o /tmp/test_response.json)",
+      "Bash(curl -s *)",
       "Bash(npx vite *)",
       "Bash(pkill -f \"vite.*5173\")",
       "Bash(taskkill //F //IM node.exe)",
@@ -63,7 +58,21 @@
       "Bash(ssh -i ~/.ssh/id_ed25519_gitlab -T git@gitlab.longshine.com)",
       "Bash(git fetch *)",
       "Skill(openspec-propose)",
-      "Skill(openspec-propose:*)"
+      "Skill(openspec-propose:*)",
+      "Read(//c/Users/xiangwenw/decision_copilot/**)",
+      "Bash(xargs -I{} git show --stat {})",
+      "Bash(npx openspec-cn *)",
+      "Skill(opsx:propose)",
+      "Skill(opsx:propose:*)",
+      "Skill(opsx:apply)",
+      "Skill(opsx:apply:*)",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\fix-dynamic-score-display openspec\\\\changes\\\\archive\\\\2026-05-17-fix-dynamic-score-display\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\fix-prob-display openspec\\\\changes\\\\archive\\\\2026-05-17-fix-prob-display\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\fix-review-bugs openspec\\\\changes\\\\archive\\\\2026-05-17-fix-review-bugs\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\four-layer-arch-refactor openspec\\\\changes\\\\archive\\\\2026-05-17-four-layer-arch-refactor\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\three-layer-arch-refactor openspec\\\\changes\\\\archive\\\\2026-05-17-three-layer-arch-refactor\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\pipeline-as-default-flow openspec\\\\changes\\\\archive\\\\2026-05-17-pipeline-as-default-flow\")",
+      "Bash(cmd //c \"robocopy /E /MOVE openspec\\\\changes\\\\pipeline-auto-correction openspec\\\\changes\\\\archive\\\\2026-05-17-pipeline-auto-correction\")"
     ],
     "deny": [
       "Bash(git push *)",
@@ -71,7 +80,8 @@
       "Bash(npm publish)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\xiangwenw\\.ssh"
+      "C:\\Users\\xiangwenw\\.ssh",
+      "C:\\Users\\xiangwenw\\decision_copilot\\openspec\\changes\\four-layer-arch-refactor"
     ]
   }
 }

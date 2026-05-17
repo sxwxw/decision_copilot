@@ -3,7 +3,6 @@ import { computed, ref, h, render } from 'vue'
 import { ElTag, ElEmpty, ElAlert } from 'element-plus'
 import ForkComparison from './ForkComparison.vue'
 import DevilReview from './DevilReview.vue'
-import SensitivityAnalysis from './SensitivityAnalysis.vue'
 import NexusReport from './NexusReport.vue'
 import ReportTemplate from './ReportTemplate.vue'
 import { exportReportToPdf } from '../../utils/exportReport'
@@ -47,10 +46,10 @@ const props = defineProps({
   sensitivity: { type: Object, default: null },
 })
 
-/** 概览模式下当前 tab：'detail' | 'sensitivity' | 'devil' */
+/** 概览模式下当前 tab：'detail' | 'nexus' */
 const overviewTab = ref('detail')
 
-const emit = defineEmits(['devilRerun', 'sensitivityRun'])
+const emit = defineEmits(['devilRerun'])
 
 const STATUS_MAP = {
   positive: { type: 'success', label: '+' },
@@ -82,14 +81,6 @@ const isOverview = computed(() => props.viewMode === 'overview')
 /** 增量分析文案（深度模拟后展示） */
 const deltaAnalysis = computed(() => {
   return props.recommendation?.delta_analysis || ''
-})
-
-/** 蒙特卡洛仿真结果摘要（全局概览模式下展示） */
-const mcSummary = computed(() => {
-  const mc = props.monteCarloResult
-  if (!mc || !mc.optionResults) return null
-  console.log('[PathDetail] 蒙特卡洛结果展示:', mc.ranking)
-  return mc
 })
 
 /** 全局概览：所有方案列表 */
@@ -235,7 +226,18 @@ async function handleExport() {
     render(reportNode, target)
 
     // 等待 DOM 渲染完成
-    await new Promise(resolve => requestAnimationFrame(resolve))
+    await new Promise((resolve) => {
+      const observer = new MutationObserver(() => {
+        observer.disconnect()
+        requestAnimationFrame(resolve)
+      })
+      observer.observe(target, { childList: true, subtree: true, attributes: true })
+      // 超时兜底 2 秒
+      setTimeout(() => {
+        observer.disconnect()
+        resolve()
+      }, 2000)
+    })
 
     // 导出 PDF
     await exportReportToPdf(target)
@@ -268,12 +270,6 @@ function getDeltaDirection(step) {
     <div class="overview-tabs">
       <button :class="['overview-tab', { active: overviewTab === 'detail' }]" @click="overviewTab = 'detail'">
         路径详情
-      </button>
-      <button :class="['overview-tab', { active: overviewTab === 'sensitivity' }]" @click="overviewTab = 'sensitivity'">
-        敏感性分析
-      </button>
-      <button :class="['overview-tab', { active: overviewTab === 'devil' }]" @click="overviewTab = 'devil'">
-        审查
       </button>
       <button :class="['overview-tab', { active: overviewTab === 'nexus' }]" @click="overviewTab = 'nexus'">
         综合报告
@@ -314,32 +310,6 @@ function getDeltaDirection(step) {
         <h4 class="analysis-title">分析</h4>
         <p>{{ recommendation.analysis }}</p>
       </div>
-
-      <!-- 蒙特卡洛仿真结果 -->
-      <div v-if="mcSummary" class="monte-carlo-card">
-        <h4 class="mc-title">蒙特卡洛仿真（P10 / P50 / P90）</h4>
-        <div class="mc-table">
-          <div v-for="item in mcSummary.ranking" :key="item.name" class="mc-row">
-            <span class="mc-rank">#{{ item.rank }}</span>
-            <span class="mc-name">{{ item.name }}</span>
-            <span class="mc-stat">
-              P10: <strong>{{ mcSummary.optionResults[item.name]?.p10 ?? '-' }}</strong>
-            </span>
-            <span class="mc-stat mc-median">
-              P50: <strong>{{ mcSummary.optionResults[item.name]?.p50 ?? '-' }}</strong>
-            </span>
-            <span class="mc-stat">
-              P90: <strong>{{ mcSummary.optionResults[item.name]?.p90 ?? '-' }}</strong>
-            </span>
-            <span class="mc-sigma">σ = {{ mcSummary.optionResults[item.name]?.sigma ?? '-' }}</span>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- Sensitivity analysis tab -->
-    <template v-else-if="overviewTab === 'sensitivity'">
-      <SensitivityAnalysis :sensitivity="sensitivity" :options="options" @run="emit('sensitivityRun')" />
     </template>
 
     <!-- Devil review tab -->
@@ -350,13 +320,13 @@ function getDeltaDirection(step) {
 
     <!-- Nexus report tab -->
     <template v-else-if="overviewTab === 'nexus'">
-      <NexusReport :nexus="pipelineNexus" />
+      <NexusReport :nexus="pipelineNexus" :sensitivity="sensitivity" :monte-carlo="monteCarloResult" :devil-result="devilResult" :pipeline-devil="pipelineDevil" />
     </template>
   </div>
 
   <!-- 分叉对比 -->
   <ForkComparison v-else-if="isFork" :path-chain="pathChain" :node="node" :top-param="topParam"
-    :adjusted-prob-map="adjustedProbMap" />
+    :get-adjusted-score="getAdjustedScore" />
 
   <!-- 路径溯源（叶节点） -->
   <div v-else-if="isTrace && pathChain.length" class="path-detail">
@@ -385,14 +355,14 @@ function getDeltaDirection(step) {
         <div class="chain-card" :class="[step.status || '']">
           <span class="chain-step-label">Step {{ step.step }}</span>
           <span class="chain-name">{{ step.name }}</span>
-          <span class="chain-value">{{ step.score }}</span>
+          <span class="chain-value" v-if="step.step !== 0">{{ step.step === 1 ? getAdjustedScore(step.name) : step.score }}</span>
         </div>
         <!-- <el-tag v-if="step.status" :type="STATUS_MAP[step.status]?.type || 'info'" size="small" effect="plain"
           class="chain-status">
           {{ STATUS_MAP[step.status]?.label }}
         </el-tag> -->
         <div v-if="idx < pathChain.length - 1" class="chain-bridge">
-          <span class="bridge-impact">{{ step.meta?.key_impact }}</span>
+          <span class="bridge-impact">{{ step.meta?.key_impact || step.logic_payload?.key_impact }}</span>
           <span v-if="getDeltaDirection(step)" class="bridge-delta"
             :class="getDeltaDirection(step) === 'up' ? 'delta-up' : 'delta-down'">
             {{ getDeltaDirection(step) === 'up' ? '↑' : '↓' }}
@@ -796,72 +766,6 @@ function getDeltaDirection(step) {
   line-height: 1.7;
   color: var(--text, #555);
   margin: 0;
-}
-
-/* 蒙特卡洛仿真结果 */
-.monte-carlo-card {
-  margin-top: 12px;
-  background: var(--code-bg, #f9fafb);
-  border-radius: 8px;
-  padding: 14px 16px;
-}
-
-.mc-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 12px;
-  color: var(--text-h, #1a1a2e);
-}
-
-.mc-table {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mc-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  background: #fff;
-  border-radius: 6px;
-  padding: 8px 12px;
-  border: 1px solid #e5e7eb;
-}
-
-.mc-rank {
-  font-weight: 700;
-  color: var(--accent, #3b82f6);
-  min-width: 28px;
-}
-
-.mc-name {
-  font-weight: 600;
-  color: var(--text-h, #1a1a2e);
-  min-width: 60px;
-}
-
-.mc-stat {
-  color: #64748b;
-}
-
-.mc-stat strong {
-  color: var(--text-h, #1a1a2e);
-}
-
-.mc-stat.mc-median {
-  color: var(--accent, #3b82f6);
-}
-
-.mc-stat.mc-median strong {
-  color: var(--accent, #3b82f6);
-}
-
-.mc-sigma {
-  margin-left: auto;
-  font-size: 12px;
-  color: #94a3b8;
 }
 
 .delta-analysis-alert {

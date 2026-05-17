@@ -45,7 +45,7 @@ function handleSubmit() {
     </div>
     <el-button type="primary" class="btn-submit" :disabled="loading || !text.trim()" :loading="loading"
       :icon="loading ? Loading : undefined" @click="handleSubmit">
-      {{ loading ? '建模中...' : '快速建模' }}
+      {{ loading ? '推演中...' : '开始推演' }}
     </el-button>
   </div>
 </template>

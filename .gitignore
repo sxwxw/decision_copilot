@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+presentation
 *.local
 
 # Editor directories and files
@@ -23,3 +24,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+outline.md
+script.md
+synthesize-audio.py
+skills-lock.json

@@ -12,12 +12,17 @@ import { Loading } from '@element-plus/icons-vue'
 
 const props = defineProps({
   loading: { type: Boolean, default: false },
+  userInput: { type: String, default: '' },
 })
 
 const emit = defineEmits(['submit'])
 
-const text = ref('')
+const text = ref(props.userInput)
 const riskPreference = ref('均衡')
+
+// 同步外部 userInput 变化（如加载 demo 数据时）
+import { watch } from 'vue'
+watch(() => props.userInput, (val) => { text.value = val })
 
 const riskOptions = [
   { value: '保守', label: '保守 — 优先稳健，规避高风险' },

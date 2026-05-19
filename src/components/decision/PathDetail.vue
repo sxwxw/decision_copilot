@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, h, render } from 'vue'
 import { ElTag, ElEmpty, ElAlert } from 'element-plus'
+import { PROBABILITY_LABELS } from '../../shared/qualitativeMap.js'
 import ForkComparison from './ForkComparison.vue'
 import DevilReview from './DevilReview.vue'
 import NexusReport from './NexusReport.vue'
@@ -120,8 +121,24 @@ const leafNode = computed(() => {
 const totalProbability = computed(() => {
   const leaf = leafNode.value
   if (!leaf) return null
+
+  // 1. 优先从 adjustedProbMap 查找路径累积概率
   const adj = getAdjustedProb(leaf)
   if (adj != null) return adj
+
+  // 2. 从 matchedPath 计算叶子所在路径的累积概率
+  if (props.matchedPath?.timeline?.length) {
+    let cumulative = 1
+    for (const evt of props.matchedPath.timeline) {
+      const prob = evt.probability ?? PROBABILITY_LABELS[evt.probability_label]?.base ?? 1
+      cumulative *= prob
+    }
+    return Math.round(cumulative * 100) / 100
+  }
+
+  // 3. 从节点 cumulativeProbability 获取（treeAdapter 计算）
+  if (leaf.cumulativeProbability != null) return leaf.cumulativeProbability
+
   return leaf.probability ?? null
 })
 

@@ -202,12 +202,40 @@ function clearAllModelingData() {
   state.pipelineInnerLoopSkipped = false
   state.pipelineOuterLoopSkipped = false
   state.pipelineOuterLoopLowConfidence = false
+  _pipelineAbortController = null
 }
 
 export function useDecisionModel() {
   function tryRestoreFromStorage() {
     const data = loadFromStorage()
-    if (!data) return
+    if (!data) {
+      // localStorage 无缓存时，清空内存中的 state（避免 SPA 路由切换残留旧数据）
+      state.userInput = ''
+      state.savedInput = ''
+      state.riskPreference = '均衡'
+      state.loading = false
+      state.model = null
+      state.selectedNode = null
+      state.paramValues = {}
+      state.snapshotWeights = null
+      state.adjustedProbabilities = {}
+      state.monteCarloResult = null
+      state.devilResult = null
+      state.devilLoading = false
+      state.pipelineId = null
+      state.pipelineStatus = 'idle'
+      state.pipelineCurrentStep = null
+      state.pipelineCompletedSteps = []
+      state.pipelineResult = null
+      state.pipelineMode = 'quick-build'
+      loadingDisplay.stop()
+      state.pipelineInnerLoopCount = 0
+      state.pipelineOuterLoopCount = 0
+      state.pipelineInnerLoopSkipped = false
+      state.pipelineOuterLoopSkipped = false
+      state.pipelineOuterLoopLowConfidence = false
+      return
+    }
 
     console.log('[Persistence] 恢复本地缓存模型')
     state.userInput = data.userInput || ''
@@ -223,6 +251,11 @@ export function useDecisionModel() {
     state.pipelineStatus = data.pipelineStatus || 'idle'
     state.pipelineCompletedSteps = data.pipelineCompletedSteps || []
     state.pipelineMode = data.pipelineMode || 'quick-build'
+    state.pipelineInnerLoopCount = 0
+    state.pipelineOuterLoopCount = 0
+    state.pipelineInnerLoopSkipped = false
+    state.pipelineOuterLoopSkipped = false
+    state.pipelineOuterLoopLowConfidence = false
 
     if (state.model?.treeData) {
       const hasPathRefs = state.model.treeData.pathIds && state.model.treeData.pathIds.length > 0
@@ -370,7 +403,16 @@ export function useDecisionModel() {
   function matchPathByChain(pathChain) {
     if (!pathChain.length || !state.model?.paths) return null
     const leafName = pathChain[pathChain.length - 1].name
-    return state.model.paths.find(p => p.name.includes(leafName)) || null
+    for (const p of state.model.paths) {
+      // 将路径名按 → 分段，取末段与叶子名做模糊匹配
+      const segments = (p.name || '').split('→').map(s => s.trim())
+      const leafSeg = segments[segments.length - 1]
+      if (leafSeg && (leafName.includes(leafSeg) || leafSeg.includes(leafName))) return p
+      // 兜底：对比 timeline 末段事件名
+      const lastEvt = p.timeline?.[p.timeline.length - 1]
+      if (lastEvt?.event && (leafName.includes(lastEvt.event) || lastEvt.event.includes(leafName))) return p
+    }
+    return null
   }
 
   function editDistance(a, b) {
@@ -410,6 +452,7 @@ export function useDecisionModel() {
           ...node,
           displayValue: node.score,
           logic: null,
+          pathIds: node.pathIds || [],
           meta: node.logic_payload ? {
             key_impact: node.logic_payload.key_impact,
             opportunity_cost: node.logic_payload.opportunity_cost,
@@ -448,6 +491,7 @@ export function useDecisionModel() {
       return {
         ...node,
         displayValue: node.score,
+        pathIds: node.pathIds || [],
         logic: evt ? {
           impact: evt.impact,
           threshold: evt.threshold,
@@ -725,6 +769,108 @@ export function useDecisionModel() {
     }
   }
 
+  async function loadDemoData(demoData) {
+    // 清除可能残留的缓存，避免 tryRestoreFromStorage 干扰
+    clearStorage()
+    state.userInput = ''
+    state.savedInput = ''
+    state.model = null
+    state.selectedNode = null
+    state.paramValues = {}
+    state.adjustedProbabilities = {}
+    state.monteCarloResult = null
+    state.devilResult = null
+    state.pipelineResult = null
+    state.pipelineStatus = 'idle'
+    state.pipelineCurrentStep = null
+    state.pipelineCompletedSteps = []
+    state.pipelineMode = 'quick-build'
+    loadingDisplay.stop()
+
+    // Demo data is nested under 'build-model' key
+    const modelData = demoData['build-model'] || demoData
+    const sanitized = sanitizeModel(modelData) || modelData
+    sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
+    state.model = sanitized
+    state.paramValues = {}
+    for (const v of sanitized.variables || []) {
+      if (v.type === 'select') {
+        state.paramValues[v.name] = v.options?.[1] ?? v.options?.[0] ?? '均衡'
+      } else {
+        state.paramValues[v.name] = 50
+      }
+    }
+    state.adjustedProbabilities = {}
+    for (const path of sanitized.paths || []) {
+      state.adjustedProbabilities[path.id] = path.probability
+    }
+    state.model.treeData._version = 0
+    state.selectedNode = null
+    selectNode(state.model.treeData)
+    state.monteCarloResult = demoData.simulate || null
+    state.devilResult = {
+      framework: demoData['devil-framework'],
+      model: demoData['devil-model'],
+      simulate: demoData['devil-simulate'],
+      nexus: demoData['devil-nexus'],
+    }
+    state.pipelineResult = {
+      'build-model': demoData['build-model'],
+      simulate: demoData.simulate,
+      nexus: demoData.nexus,
+    }
+    state.userInput = demoData.framework?.decision_context || ''
+    state.savedInput = demoData.framework?.decision_context || ''
+    state.pipelineStatus = 'completed'
+    state.pipelineMode = 'quick-build'
+    saveToStorage()
+  }
+
+  async function loadMockData(mockData) {
+    // 清除可能残留的缓存
+    clearStorage()
+    state.userInput = ''
+    state.savedInput = ''
+    state.model = null
+    state.selectedNode = null
+    state.paramValues = {}
+    state.adjustedProbabilities = {}
+    state.monteCarloResult = null
+    state.devilResult = null
+    state.pipelineResult = null
+    state.pipelineStatus = 'idle'
+    state.pipelineCurrentStep = null
+    state.pipelineCompletedSteps = []
+    state.pipelineMode = 'quick-build'
+    loadingDisplay.stop()
+
+    const modelData = mockData.model
+    const sanitized = sanitizeModel(modelData) || modelData
+    sanitized.treeData = adaptTree(sanitized.treeData, sanitized.paths)
+    state.model = sanitized
+    state.paramValues = mockData.paramValues || {}
+    state.adjustedProbabilities = mockData.adjustedProbabilities || {}
+    for (const path of sanitized.paths || []) {
+      if (state.adjustedProbabilities[path.id] == null) {
+        state.adjustedProbabilities[path.id] = path.probability
+      }
+    }
+    state.model.treeData._version = 0
+    state.selectedNode = null
+    selectNode(state.model.treeData)
+    state.userInput = mockData.userInput || ''
+    state.savedInput = mockData.userInput || ''
+    state.riskPreference = mockData.riskPreference || '均衡'
+    state.monteCarloResult = mockData.monteCarloResult || null
+    state.devilResult = mockData.devilResult || null
+    state.pipelineResult = mockData.pipelineResult || null
+    state.pipelineStatus = mockData.pipelineStatus || 'completed'
+    state.pipelineMode = mockData.pipelineMode || 'quick-build'
+    state.pipelineCompletedSteps = mockData.pipelineCompletedSteps || []
+    state.pipelineId = mockData.pipelineId || null
+    saveToStorage()
+  }
+
   return {
     state,
     scores,
@@ -746,6 +892,8 @@ export function useDecisionModel() {
     runModelCorrection,
     clearStorage: clearAllModelingData,
     setRiskPreference,
+    loadDemoData,
+    loadMockData,
     validateModel,
     sanitizeModel,
     adaptTree,

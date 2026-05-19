@@ -50,7 +50,9 @@ function _buildPathRefs(treeData, paths) {
     if (!events.length) continue
 
     const optionName = events[0]
-    const matchedOption = treeData.children?.find(c => c.name === optionName)
+    // 使用模糊匹配而非精确等号，兼容 LLM 缩写路径名
+    const matchedOption = treeData.children?.find(c =>
+      c.name === optionName || c.name.includes(optionName) || optionName.includes(c.name))
     if (!matchedOption) continue
 
     if (!matchedOption._pathRef) matchedOption._pathRef = []
@@ -103,10 +105,12 @@ export function adaptTree(rawTree, rawPaths) {
 
     const probEntry = eventProbMap[cleanName]
     let probability
+    let cumulativeProbability
     if (node.probability !== undefined && node.probability !== null) {
       probability = node.probability
     } else if (probEntry !== undefined) {
       probability = probEntry.conditional
+      cumulativeProbability = probEntry.cumulative
     } else {
       probability = null
     }
@@ -121,6 +125,7 @@ export function adaptTree(rawTree, rawPaths) {
       score: node.value ?? 50,
       status: node.eventType || null,
       probability: clampedProb,
+      cumulativeProbability: cumulativeProbability ?? null,
       isDashed: step >= 2,
       children: [],
       pathIds,

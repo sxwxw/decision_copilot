@@ -1,5 +1,7 @@
 <script setup>
-import { ref, onBeforeUnmount, computed } from 'vue'
+import { ref, onBeforeUnmount, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import InputPanel from '../components/decision/InputPanel.vue'
 import ParamPanel from '../components/decision/ParamPanel.vue'
 import DecisionTree from '../components/decision/DecisionTree.vue'
@@ -8,9 +10,16 @@ import PipelineProgress from '../components/decision/PipelineProgress.vue'
 import { useDecisionModel } from '../composables/useDecisionModel'
 import { ElMessageBox, ElMessage } from 'element-plus'
 
+const route = useRoute()
+const router = useRouter()
+
 const { state, recalcScores, runPipeline, runDevilReview, runModelCorrection, clearStorage, selectNode,
   getAdjustedScore, getScoreAttribution,
-  pipelineDevil, pipelineNexus, loadingDisplay } = useDecisionModel()
+  pipelineDevil, pipelineNexus, loadingDisplay, loadDemoData, loadMockData } = useDecisionModel()
+
+function goHome() {
+  router.push('/')
+}
 
 const leftPanelWidth = ref(300)
 const MIN_LEFT = 260
@@ -131,10 +140,33 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousemove', resizeHandlers.value.bottomMove)
   document.removeEventListener('mouseup', resizeHandlers.value.bottomUp)
 })
+
+onMounted(async () => {
+  const demoId = route.query.demo
+  if (demoId === 'mock') {
+    const mockData = await import('../utils/mock.json')
+    await loadMockData(mockData.default)
+    ElMessage.success('已加载示例决策数据')
+  } else if (demoId === 'demo-ai-vs-conservative') {
+    const demoData = await import('../assets/mock/demo-ai-vs-conservative.json')
+    await loadDemoData(demoData.default)
+    ElMessage.success('已加载示例决策数据')
+  }
+})
 </script>
 
 <template>
   <div class="decision-view">
+    <!-- Top navigation bar -->
+    <header class="decision-header">
+      <div class="header-left">
+        <el-button text @click="goHome" class="btn-back">
+          <el-icon><ArrowLeft /></el-icon>
+          返回首页
+        </el-button>
+        <span class="header-title">Decision Copilot</span>
+      </div>
+    </header>
     <div class="three-panel">
       <!-- Custom loading overlay -->
       <Transition name="loading-fade">
@@ -153,7 +185,7 @@ onBeforeUnmount(() => {
       <!-- Input Panel + Param Panel (stacked, scrollable) -->
       <div class="panel input-col" :style="{ width: leftPanelWidth + 'px' }">
         <div class="left-scroll">
-          <InputPanel :loading="state.loading" @submit="onSubmit" />
+          <InputPanel :loading="state.loading" :user-input="state.userInput" @submit="onSubmit" />
           <div class="pipeline-section" :class="{ 'pipeline-idle': state.pipelineStatus === 'idle' }">
             <PipelineProgress
               :pipeline-id="state.pipelineId"
@@ -231,6 +263,35 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.decision-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: var(--bg, #fff);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-back {
+  font-size: 13px;
+  padding: 4px 8px;
+  color: var(--text, #6b7280);
+}
+
+.header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h, #111827);
 }
 
 .three-panel {

@@ -130,7 +130,8 @@
       "Bash(cd /e/codeLife/decision_copilot/presentation && npx tsx scripts/extract-narrations.ts 2>&1)",
       "Read(//e/codeLife/decision_copilot/presentation/**)",
       "Bash(cd /e/codeLife/decision_copilot && python synthesize-audio.py 2>&1)",
-      "Read(//e/e/codeLife/decision_copilot/**)"
+      "Read(//e/e/codeLife/decision_copilot/**)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && cat {}')"
     ],
     "deny": [
       "Bash(git push *)",

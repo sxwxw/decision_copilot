@@ -4,37 +4,45 @@ const QWEN_API_URL = process.env.DASHSCOPE_API_URL || 'https://dashscope.aliyunc
 const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus'
 const API_KEY = process.env.DASHSCOPE_API_KEY || ''
 
-export async function callQwen(systemPrompt, userPrompt, model, retries = 2, enableThinking = false) {
+export async function callQwen(systemPrompt, userPrompt, model, retries = 2, enableThinking = false, jsonMode = true) {
   if (!API_KEY) {
     throw new Error('DASHSCOPE_API_KEY not configured')
   }
 
   const modelName = model || QWEN_MODEL;
 
-  // Ensure user prompt mentions "JSON" for relay validation
-  const enhancedUserPrompt = userPrompt.includes('JSON') || userPrompt.includes('json')
-    ? userPrompt
-    : userPrompt + '（请以JSON格式返回）'
+  let enhancedUserPrompt = userPrompt
+  if (jsonMode) {
+    // Ensure user prompt mentions "JSON" for relay validation
+    enhancedUserPrompt = userPrompt.includes('JSON') || userPrompt.includes('json')
+      ? userPrompt
+      : userPrompt + '（请以JSON格式返回）'
+  }
 
-  console.log('[callQwen] model:', modelName, '| url:', QWEN_API_URL, '| system_len:', systemPrompt.length, '| user_len:', userPrompt.length)
+  const sysLen = systemPrompt ? systemPrompt.length : 0
+  console.log('[callQwen] model:', modelName, '| url:', QWEN_API_URL, '| system_len:', sysLen, '| user_len:', userPrompt.length, '| jsonMode:', jsonMode)
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      const body = {
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt || '' },
+          { role: 'user', content: enhancedUserPrompt },
+        ],
+        temperature: 0.7,
+        enable_thinking: enableThinking,
+      }
+      if (jsonMode) {
+        body.response_format = { type: 'json_object' }
+      }
+
       const res = await fetch(QWEN_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${API_KEY}`,
         },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: enhancedUserPrompt },
-          ],
-          temperature: 0.7,
-          response_format: { type: 'json_object' },
-          enable_thinking: enableThinking,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -46,6 +54,11 @@ export async function callQwen(systemPrompt, userPrompt, model, retries = 2, ena
       const content = json.choices?.[0]?.message?.content
       if (!content) {
         throw new Error('Empty response from Qwen API')
+      }
+
+      // If not in JSON mode, return raw text directly
+      if (!jsonMode) {
+        return content
       }
 
       // Parse JSON from response

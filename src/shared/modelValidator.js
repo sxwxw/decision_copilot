@@ -45,6 +45,7 @@ export function validateModel(raw) {
   const weights = raw.weights && typeof raw.weights === 'object' ? raw.weights : {}
   const scores = raw.scores && typeof raw.scores === 'object' ? raw.scores : {}
   const paths = Array.isArray(raw.paths) ? raw.paths : []
+  const treeData = raw.treeData && typeof raw.treeData === 'object' ? raw.treeData : null
   const variables = Array.isArray(raw.variables) ? raw.variables.map(v => v.name) : []
 
   // 结构完整性

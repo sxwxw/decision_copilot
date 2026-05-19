@@ -14,11 +14,15 @@ import {
   DECISION_DEVIL_SIMULATE_PROMPT,
   DECISION_DEVIL_NEXUS_PROMPT,
   DECISION_FRAMEWORK_PROMPT,
-  DECISION_NEXUS_PROMPT
+  DECISION_NEXUS_PROMPT,
+  DECISION_SEE_STEP1_PROMPT,
+  DECISION_SEE_STEP2_PROMPT,
+  DECISION_SEE_STEP3_PROMPT,
 } from '../prompts/decisionModel.js'
 import { validateModel, sanitizeModel } from '../../src/shared/modelValidator.js'
 import { runMonteCarlo } from '../../src/utils/simulator.js'
 import { sanitizeDevilReview } from '../utils/sanitizeDevilReview.js'
+import { assembleModel, validateModelStructure } from '../parsers/seeParser.js'
 
 const router = Router()
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -464,7 +468,189 @@ router.post('/build-model', async (req, res) => {
   res.status(500).json({ error: 'Mock data not available' })
 })
 
+// ── SEE Sub-Pipeline ──
+
+async function executeSeeSubPipeline(pipelineId, userInput, framework, sendEvent, options = {}) {
+  const {
+    fromStepIdx = 0,
+    innerLoopDirectives = null,
+    defeatContext = null,
+    currentModel = null,
+  } = options
+
+  const state = pipelineState[pipelineId]
+  const seeSteps = { step1: null, step2: null, step3: null }
+
+  // Restore cached SEE step results if not re-running
+  for (const key of ['seeStep1', 'seeStep2', 'seeStep3']) {
+    const cached = state[key]
+    if (cached && cached.parsed_json && cached.status === 'frozen') {
+      if (key === 'seeStep1') seeSteps.step1 = cached
+      if (key === 'seeStep2') seeSteps.step2 = cached
+      if (key === 'seeStep3') seeSteps.step3 = cached
+    }
+  }
+
+  const startTime = Date.now()
+  let llmCalls = 0
+
+  // SEE Step 1: Variables & Weights
+  if (fromStepIdx <= 0) {
+    console.log(`[SEE] Step 1 started | pipeline: ${pipelineId}, version: ${state.seeStep1?.version ?? 0}`)
+    await sendEvent('status', { status: 'see-step-running', text: 'SEE Step 1/3: 变量与参数细化' })
+
+    const prompt = DECISION_SEE_STEP1_PROMPT
+      .replace('{{USER_PROMPT}}', userInput)
+      .replace('{{FRAMEWORK_JSON}}', JSON.stringify(framework || {}))
+
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    if (Array.isArray(result)) result = result[0]
+    llmCalls++
+
+    state.seeStep1 = { raw_text: result, parsed_json: null, status: 'frozen', version: (state.seeStep1?.version ?? 0) + 1 }
+    console.log(`[SEE] Step 1 completed | pipeline: ${pipelineId}, version: ${state.seeStep1.version}`)
+    await sendEvent('status', { status: 'see-step-completed', text: 'SEE Step 1/3: 完成' })
+  }
+
+  // Mark downstream stale if step1 re-ran
+  if (fromStepIdx <= 0) {
+    if (state.seeStep2 && state.seeStep2.status === 'frozen') {
+      state.seeStep2.status = 'stale'
+    }
+    if (state.seeStep3 && state.seeStep3.status === 'frozen') {
+      state.seeStep3.status = 'stale'
+    }
+  }
+
+  // SEE Step 2: Causal Tree
+  if (fromStepIdx <= 1 && !state.seeStep2?.parsed_json) {
+    console.log(`[SEE] Step 2 started | pipeline: ${pipelineId}, version: ${state.seeStep2?.version ?? 0}`)
+    await sendEvent('status', { status: 'see-step-running', text: 'SEE Step 2/3: 因果树推演' })
+
+    let extra = ''
+    if (innerLoopDirectives && fromStepIdx <= 0) {
+      extra = `\n### 内回路修正指令\n请修正以下问题：\n${JSON.stringify(innerLoopDirectives)}\n`
+    } else if (defeatContext && fromStepIdx <= 0) {
+      extra = `\n### 外回路重塑指令\n请在推演中重点考量：\n${defeatContext}\n`
+    }
+
+    const prompt = DECISION_SEE_STEP2_PROMPT
+      .replace('{{FRAMEWORK_JSON}}', JSON.stringify(framework || {}))
+      .replace('{{STEP_1_OUTPUT}}', state.seeStep1.raw_text + extra)
+
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    if (Array.isArray(result)) result = result[0]
+    llmCalls++
+
+    state.seeStep2 = { raw_text: result, parsed_json: null, status: 'frozen', version: (state.seeStep2?.version ?? 0) + 1 }
+    console.log(`[SEE] Step 2 completed | pipeline: ${pipelineId}, version: ${state.seeStep2.version}`)
+    await sendEvent('status', { status: 'see-step-completed', text: 'SEE Step 2/3: 完成' })
+  }
+
+  // Mark downstream stale if step2 re-ran
+  if (fromStepIdx <= 1) {
+    if (state.seeStep3 && state.seeStep3.status === 'frozen') {
+      state.seeStep3.status = 'stale'
+    }
+  }
+
+  // SEE Step 3: Paths & Recommendations
+  if (fromStepIdx <= 2 && !state.seeStep3?.parsed_json) {
+    console.log(`[SEE] Step 3 started | pipeline: ${pipelineId}, version: ${state.seeStep3?.version ?? 0}`)
+    await sendEvent('status', { status: 'see-step-running', text: 'SEE Step 3/3: 路径演绎与推荐' })
+
+    let extra = ''
+    if (innerLoopDirectives && fromStepIdx <= 1) {
+      extra = `\n### 内回路修正指令\n请修正以下问题：\n${JSON.stringify(innerLoopDirectives)}\n`
+    } else if (defeatContext && fromStepIdx <= 0) {
+      extra = `\n### 外回路重塑指令\n请在推演中重点考量：\n${defeatContext}\n`
+    }
+
+    const prompt = DECISION_SEE_STEP3_PROMPT
+      .replace('{{STEP_1_OUTPUT}}', state.seeStep1.raw_text)
+      .replace('{{STEP_2_OUTPUT}}', state.seeStep2.raw_text + extra)
+
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    if (Array.isArray(result)) result = result[0]
+    llmCalls++
+
+    state.seeStep3 = { raw_text: result, parsed_json: null, status: 'frozen', version: (state.seeStep3?.version ?? 0) + 1 }
+    console.log(`[SEE] Step 3 completed | pipeline: ${pipelineId}, version: ${state.seeStep3.version}`)
+    await sendEvent('status', { status: 'see-step-completed', text: 'SEE Step 3/3: 完成' })
+  }
+
+  // Assemble final model via Parser
+  console.log(`[SEE] Parser assembling | pipeline: ${pipelineId}`)
+  const model = assembleModel(state.seeStep1.raw_text, state.seeStep2.raw_text, state.seeStep3.raw_text, framework)
+
+  // Apply currentModel constraints in deep-validation mode
+  if (currentModel) {
+    model.options = [...currentModel.options]
+    model.weights = { ...currentModel.weights }
+  }
+
+  // Validate structure before sanitizeModel
+  console.log(`[SEE] validateModelStructure checking | pipeline: ${pipelineId}`)
+  const structErrors = validateModelStructure(model)
+  const structFatal = structErrors.filter(e => e.severity === 'error')
+  if (structFatal.length > 0) {
+    console.error(`[SEE] validateModelStructure FAILED | errors: ${JSON.stringify(structFatal.map(e => e.message))}`)
+    throw new Error(`SEE 结构校验失败: ${structFatal.map(e => e.message).join(', ')}`)
+  }
+  console.log(`[SEE] validateModelStructure passed | pipeline: ${pipelineId}`)
+
+  // Run sanitizeModel for normalization
+  const sanitized = sanitizeModel(model) || model
+
+  // Update cached parsed_json
+  state.seeStep1.parsed_json = { variables: sanitized.variables, weights: sanitized.weights }
+  state.seeStep2.parsed_json = { treeData: sanitized.treeData }
+  state.seeStep3.parsed_json = { paths: sanitized.paths, scores: sanitized.scores, recommendation: sanitized.recommendation }
+
+  const elapsed = Date.now() - startTime
+  console.log(`[SEE] Sub-pipeline completed | totalLLMCalls: ${llmCalls}, elapsed: ${elapsed}ms | pipeline: ${pipelineId}`)
+
+  return sanitized
+}
+
 // ── Shared pipeline step definitions ──
+// 8-step adversarial pipeline: each main step followed by a DEVIL sub-step
+
+/**
+ * Determine which SEE sub-step to rollback to based on devil review.
+ * Returns 1, 2, or 3. Defaults to 1 if unclear.
+ */
+function determineTargetStep(devilReview) {
+  if (!devilReview) return 1
+  // Check for explicit target_step field
+  if (devilReview.target_step >= 1 && devilReview.target_step <= 3) {
+    return devilReview.target_step
+  }
+  // Heuristic: infer from directives content
+  const directives = devilReview.directives || []
+  const raw = JSON.stringify(devilReview).toLowerCase()
+  // Keywords suggesting variable/weight issues → Step 1
+  if (raw.includes('权重') || raw.includes('weight') || raw.includes('变量') || raw.includes('variable')) {
+    const relevant = directives.filter(d =>
+      (d.reason || d.action || '').includes('权重') ||
+      (d.reason || d.action || '').includes('weight') ||
+      (d.reason || d.action || '').includes('变量') ||
+      (d.reason || d.action || '').includes('variable')
+    )
+    if (relevant.length > 0) return 1
+  }
+  // Keywords suggesting tree/causal issues → Step 2
+  if (raw.includes('因果') || raw.includes('分叉') || raw.includes('tree') || raw.includes('路径概率') || raw.includes('归一化')) {
+    const relevant = directives.filter(d =>
+      (d.reason || d.action || '').includes('因果') ||
+      (d.reason || d.action || '').includes('分叉') ||
+      (d.reason || d.action || '').includes('概率')
+    )
+    if (relevant.length > 0) return 2
+  }
+  // Default: Step 1 (safest, causes full cascade)
+  return 1
+}
 // 9-step adversarial pipeline: each main step followed by a DEVIL sub-step
 
 const PIPELINE_STEPS = [
@@ -616,53 +802,51 @@ ${steps['devil-model'] ? `\n- 模型审查意见：${JSON.stringify(steps['devil
 - 权重：${JSON.stringify(currentModel.weights)}`
       }
     } else if (step.name === 'build-model') {
-      if (devilDirectives) {
-        // Inner loop: inject correction directives
-        userPrompt = `### 内回路修正指令
-你的上一次建模发现了以下关键问题，请修正模型：
-${JSON.stringify(devilDirectives)}
+      if (USE_REAL_LLM) {
+        // SEE sub-pipeline: replaces old single callQwen
+        const innerDirectives = devilDirectives || null
+        const outerDefeat = defeatContext || null
 
-### 原始问题
-${userInput}
+        // If inner loop triggered, determine target_step for precise rollback
+        let seeFromIdx = 0
+        if (innerDirectives) {
+          const targetStep = determineTargetStep(innerDirectives)
+          seeFromIdx = targetStep - 1 // target_step 1→0, 2→1, 3→2
+          console.log(`[SEE] Inner loop rollback | target_step: ${targetStep}, seeFromIdx: ${seeFromIdx}`)
+          if (targetStep <= 1) console.log(`[SEE] Inner loop cascade | staleSteps: [2,3]`)
+          else if (targetStep <= 2) console.log(`[SEE] Inner loop cascade | staleSteps: [3]`)
+        }
 
-### 框架定义
-${JSON.stringify(steps.framework || {})}
+        const framework = steps.framework || {}
+        const seeResult = await executeSeeSubPipeline(
+          pipelineId, userInput, framework, sendEvent, {
+            fromStepIdx: seeFromIdx,
+            innerLoopDirectives: seeFromIdx === 0 ? innerDirectives : null,
+            defeatContext: outerDefeat,
+            currentModel: currentModel || null,
+          },
+        )
 
-### 修正原则
-1. 只修不造：保持 options 列表不变，只修改 treeData、variables、weights 内部细节
-2. 逐条回应上述修正指令
-3. 保持结构一致
-`
-        devilDirectives = null // consumed
-      } else if (defeatContext) {
-        // Outer loop: inject defeat context
-        userPrompt = `### 外回路重塑指令（败因上下文）
-上一次建模的置信度不足，请基于以下败因分析重新建模：
-${defeatContext}
+        steps['build-model'] = seeResult
+        pipelineState[pipelineId].lastStep = step.name
 
-### 原始问题
-${userInput}
+        // Run validateModel after SEE assembly
+        const validationResults = validateModel(seeResult)
+        if (validationResults.length > 0) {
+          pipelineState[pipelineId].validationResults = validationResults
+          const errorCount = validationResults.filter(e => e.severity === 'error').length
+          const warningCount = validationResults.filter(e => e.severity === 'warning').length
+          console.log(`[Pipeline] build-model validation: ${errorCount} errors, ${warningCount} warnings`)
+        }
 
-### 框架定义
-${JSON.stringify(steps.framework || {})}
+        // Clear consumed directives
+        if (innerDirectives) devilDirectives = null
+        if (outerDefeat) defeatContext = null
 
-### 修正原则
-1. 只修不造：保持 options 列表不变
-2. 针对败因上下文中指出的问题进行修正
-3. 保持结构一致
-`
-        defeatContext = null // consumed
-      } else if (currentModel) {
-        userPrompt = `用户问题：${userInput}
-框架定义：${JSON.stringify(steps.framework || {})}
+        // Notify frontend that build-model step is complete (SSE)
+        await sendEvent('step', { step: 'build-model', status: 'completed' })
 
-### 严格约束（深度验证模式）
-- **options 列表必须与以下完全一致**：${JSON.stringify(currentModel.options)}
-- **weights 权重必须与以下完全一致**：${JSON.stringify(currentModel.weights)}
-- 请在已有模型基础上补充 trade_offs、扩展 treeData 路径、完善 sim_spec
-- 不得修改选项名称和权重分配`
-      } else {
-        userPrompt = `用户问题：${userInput}\n框架定义：${JSON.stringify(steps.framework || {})}`
+        continue // skip old LLM call path
       }
     } else if (step.name === 'nexus') {
       const model = steps['build-model'] || {}
@@ -775,6 +959,11 @@ ${confidenceSignals}`
             await sendEvent('status', { status: 'outer-loop-running', text: `置信度不足，正在第 ${outerLoopCount} 次重塑模型...` })
             console.log(`[Pipeline] Outer loop #${outerLoopCount} triggered, re-running trimmed pipeline`)
 
+            // Clear SEE intermediate state for outer loop reshuffle
+            delete state.seeStep1
+            delete state.seeStep2
+            delete state.seeStep3
+
             const trimmedSteps = ['build-model', 'simulate', 'nexus']
             for (const ts of trimmedSteps) {
               delete steps[ts]
@@ -807,26 +996,21 @@ ${confidenceSignals}`
                 const accumulatedCritique = outerLoopCount > 1
                   ? `\n### 历史重塑记录\n此前已进行 ${outerLoopCount - 1} 次模型重塑，置信度仍未达标。请彻底反思当前建模范式，避免重复同样的错误。\n`
                   : ''
-                const bmPrompt = `### 外回路重塑指令（败因上下文）
-上一次建模的置信度不足，请基于以下败因分析重新建模：
-${defeatContext}
-${accumulatedCritique}
-### 原始问题
-${userInput}
-
-### 框架定义
-${JSON.stringify(steps.framework || {})}
-
-### 修正原则
-1. 只修不造：保持 options 列表不变
-2. 针对败因上下文中指出的问题进行修正
-3. 保持结构一致
-`
-                let bmResult = await callQwen(DECISION_MODEL_DEEP_PROMPT, bmPrompt, DECISION_MODEL, 2, false)
-                if (Array.isArray(bmResult)) bmResult = bmResult[0]
-                bmResult = sanitizeModel(bmResult)
-                steps['build-model'] = bmResult
-                const v2Validation = validateModel(bmResult)
+                const framework = steps.framework || {}
+                try {
+                  const seeResult = await executeSeeSubPipeline(
+                    pipelineId, userInput, framework, sendEvent, {
+                      fromStepIdx: 0,
+                      defeatContext: defeatContext + accumulatedCritique,
+                      currentModel: currentModel || null,
+                    },
+                  )
+                  steps['build-model'] = seeResult
+                } catch (seeErr) {
+                  console.error(`[SEE] Outer loop build-model failed:`, seeErr.message)
+                  steps['build-model'] = { error: seeErr.message }
+                }
+                const v2Validation = validateModel(steps['build-model'])
                 if (v2Validation.length > 0) {
                   pipelineState[pipelineId].v2ValidationErrors = v2Validation
                   console.log(`[Pipeline] V2#${outerLoopCount} validation: ${v2Validation.filter(e => e.severity === 'error').length} errors`)
@@ -899,8 +1083,47 @@ ${confidenceSignals2}${v2Critique}`
     } else if (mockData) {
       let data = mockData
       if (Array.isArray(data)) data = data[0]
-      // DEVIL steps expect different JSON structures than the main model
-      if (step.name === 'devil-framework') {
+      // SEE sub-pipeline mock: generate mock DSL text for each step
+      if (step.name === 'build-model') {
+        // Mock SEE step outputs
+        pipelineState[pipelineId].seeStep1 = {
+          raw_text: `## VARIABLES_START ##\n- Variable: 成本\n  * Type: slider\n  * Range: [0, 100]\n  * Weight: 0.35\n  * SimSpecType: normal\n  * SimSpecParams: mean: 60, sd: 15\n- Variable: 收益\n  * Type: slider\n  * Range: [0, 100]\n  * Weight: 0.30\n  * SimSpecType: lognormal\n  * SimSpecParams: mean: 70, sd: 20\n## VARIABLES_END ##`,
+          parsed_json: null,
+          status: 'frozen',
+          version: 1,
+        }
+        pipelineState[pipelineId].seeStep2 = {
+          raw_text: `- Root: 决策分析\n  - Option: ${mockData.options[0]}\n    [PAYLOAD]\n    key_impact: 核心影响\n    risk_level: 中\n    primary_reason: 理由\n    opportunity_cost: 机会成本\n    trade_off: 成本 -> 中正向\n    trade_off: 收益 -> 弱正向\n    risk_adjustment: 保守:5 | 均衡:0 | 激进:-3\n    [END_PAYLOAD]\n    - Event: 正向事件 | Type: positive | Value: 60\n      [PAYLOAD]\n      key_impact: 影响\n      risk_level: 低\n      primary_reason: 理由\n      opportunity_cost: 成本\n      trade_off: 成本 -> 强正向\n      [END_PAYLOAD]\n      - State: 终局 | Type: positive | Value: 80 | Prob: 高\n    - Event: 负向事件 | Type: negative | Value: 40\n      [PAYLOAD]\n      key_impact: 影响\n      risk_level: 高\n      primary_reason: 理由\n      opportunity_cost: 成本\n      trade_off: 成本 -> 强负向\n      [END_PAYLOAD]\n      - State: 终局 | Type: negative | Value: 20 | Prob: 低\n  - Option: ${mockData.options[1] || '选项2'}\n    [PAYLOAD]\n    key_impact: 核心影响\n    risk_level: 中\n    primary_reason: 理由\n    opportunity_cost: 机会成本\n    trade_off: 成本 -> 弱负向\n    trade_off: 收益 -> 中正向\n    risk_adjustment: 保守:-3 | 均衡:0 | 激进:5\n    [END_PAYLOAD]\n    - Event: 正向事件 | Type: positive | Value: 55\n      [PAYLOAD]\n      key_impact: 影响\n      risk_level: 中\n      primary_reason: 理由\n      opportunity_cost: 成本\n      trade_off: 成本 -> 中正向\n      [END_PAYLOAD]\n      - State: 终局 | Type: positive | Value: 70 | Prob: 中\n    - Event: 负向事件 | Type: negative | Value: 35\n      [PAYLOAD]\n      key_impact: 影响\n      risk_level: 高\n      primary_reason: 理由\n      opportunity_cost: 成本\n      trade_off: 成本 -> 中负向\n      [END_PAYLOAD]\n      - State: 终局 | Type: negative | Value: 15 | Prob: 极低`,
+          parsed_json: null,
+          status: 'frozen',
+          version: 1,
+        }
+        pipelineState[pipelineId].seeStep3 = {
+          raw_text: `## PATHS_START ##\n- Path: path-1 | Name: ${mockData.options[0]} → 正向事件 → 终局 | Prob: 高 | Exp: 路径说明\n  * TimelineEvent: 正向事件 | Prob: 高 | Desc: 详细描述 | Impact: 成本:10, 收益:5 | Threshold: 成本:60\n- Path: path-2 | Name: ${mockData.options[0]} → 负向事件 → 终局 | Prob: 低 | Exp: 路径说明\n  * TimelineEvent: 负向事件 | Prob: 低 | Desc: 详细描述 | Impact: 成本:-15, 收益:-5 | Threshold: 成本:30\n## PATHS_END ##\n## SCORES_START ##\n- Score: ${mockData.options[0]} -> ${mockData.scores?.[mockData.options[0]] ?? 65}\n- Score: ${mockData.options[1] || '选项2'} -> ${mockData.scores?.[mockData.options[1]] ?? 55}\n## SCORES_END ##\n## RECOMMENDATION_START ##\n综合分析推荐\n## RECOMMENDATION_END ##`,
+          parsed_json: null,
+          status: 'frozen',
+          version: 1,
+        }
+
+        // Assemble and store
+        const framework = steps.framework || { options: mockData.options, dimensions: [], key_tradeoffs: [], risk_factors: [] }
+        try {
+          const model = assembleModel(
+            pipelineState[pipelineId].seeStep1.raw_text,
+            pipelineState[pipelineId].seeStep2.raw_text,
+            pipelineState[pipelineId].seeStep3.raw_text,
+            framework,
+          )
+          const sanitized = sanitizeModel(model) || model
+          steps['build-model'] = sanitized
+          pipelineState[pipelineId].seeStep1.parsed_json = { variables: sanitized.variables, weights: sanitized.weights }
+          pipelineState[pipelineId].seeStep2.parsed_json = { treeData: sanitized.treeData }
+          pipelineState[pipelineId].seeStep3.parsed_json = { paths: sanitized.paths, scores: sanitized.scores, recommendation: sanitized.recommendation }
+        } catch {
+          steps['build-model'] = data
+        }
+        pipelineState[pipelineId].lastStep = step.name
+      } else if (step.name === 'devil-framework') {
         pipelineState[pipelineId].steps[step.name] = {
           stage: 'devil-framework',
           questions: [
@@ -1033,7 +1256,7 @@ router.post('/pipeline/:id/resume', async (req, res) => {
     sentEvents.push({ event, data })
   }
 
-  await executePipelineSteps(id, resumeIdx, '', sendEvent)
+  await executePipelineSteps(id, resumeIdx, state.userInput || '', sendEvent)
 
   state.status = 'completed'
   return res.json({ pipelineId: id, status: 'completed', steps: state.steps, events: sentEvents })

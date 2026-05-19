@@ -35,7 +35,7 @@ export const DECISION_MODEL_PROMPT = `<Role>
 3. 语义精炼：treeData.name 严控在 4-6 字，剔除"如果、可能、会导致"等废话。
 4. 逻辑闭环：scores 中的最终得分应由 weights 和 paths 中的数据加权推导得出。同一 Option 下的所有路径，其 probability_label 映射为数值后总和应严格等于 1.0（如高+低+极低=0.70+0.25+0.05=1.0）。不同 Option 的路径概率各自独立归一化，跨 Option 路径的概率总和没有意义。
 5. logic_payload 分工：每个中间节点（有 children 的非叶子节点）必须包含 logic_payload，描述该分叉路口的决策权衡。叶子节点禁止包含 logic_payload。
-6. trade_offs 约束：trade_offs 中的 dimension 值必须是 variables 中定义的变量名，严禁使用自由文本维度。所有出现在 weights 中的维度，必须在至少一个选项的 trade_offs 中出现。
+6. trade_offs 完整清单约束：weights 中的每一个维度，必须在每一个 Option 节点的 trade_offs 中出现，不得遗漏。例如 weights 包含 {A, B, C, D} 四个维度，则每个 Option 的 trade_offs 数组必须恰好包含 4 个条目，分别对应 A、B、C、D，每个条目的 delta_label 取值见上文字典。严禁只写部分维度或用 delta=0 跳过——必须显式写出 delta_label 及其对应的定性影响方向。
 7. trade_offs 方向约定：delta 代表该方案在此维度的正向收益。正值 = 优于平均水平；负值 = 差于平均水平。变量名应反映"越好越高"的方向（例如用"现金流稳定性"而非"现金流压力"），确保高分对应好结果。
 8. risk_adjustment 字段：每个 Option 节点的 logic_payload 中必须包含 risk_adjustment 对象，定义不同风险偏好类型下该选项的基准分偏移量：{ "保守": { "offset": <±数值> }, "均衡": { "offset": 0 }, "激进": { "offset": <±数值> } }。低风险选项对"保守"型有正向 offset，高风险选项对"激进"型有正向 offset。
 9. sim_spec 约束：为每个变量输出合理的分布类型和参数，均值应在 [0, 100] 范围内。常见分布：成本类用 lognormal、概率类用 beta、等级类用 categorical。
@@ -70,8 +70,10 @@ export const DECISION_MODEL_PROMPT = `<Role>
           "risk_level": "<低|中|高>",
           "primary_reason": "<选择该选项的核心理由，一句话>",
           "trade_offs": [
-            { "dimension": "<必须是variables中定义的变量名>", "delta_label": "<定性标签>" },
-            { "dimension": "<必须是variables中定义的变量名>", "delta_label": "<定性标签>" }
+            { "dimension": "<变量1名>", "delta_label": "<定性标签>" },
+            { "dimension": "<变量2名>", "delta_label": "<定性标签>" },
+            { "dimension": "<变量3名>", "delta_label": "<定性标签>" },
+            { "dimension": "<变量4名>", "delta_label": "<定性标签>" }
           ],
           "opportunity_cost": "<选择该选项的机会成本描述，一句话>",
           "risk_adjustment": {
@@ -138,7 +140,7 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
 
 ### 严格约束
 1. **输出格式**：仅返回纯净 JSON，禁止 Markdown、开场白或结尾文字。
-2. **trade_offs 完整性**：所有出现在 weights 中的维度，必须在至少一个选项的 trade_offs 中出现，且 dimension 必须是 paramValues 的 key。
+2. **trade_offs 完整性**：weights 中的每一个维度，必须在每一个 Option 节点的 trade_offs 中出现，不得遗漏。dimension 必须是 paramValues 的 key，且每个 Option 的 trade_offs 条目数应等于 weights 的 key 数量。
 3. **sim_spec 输出**：为每个变量输出合理的 sim_spec（分布类型+参数），均值应在 [0, 100] 范围内。
 4. **逻辑推演**：根据当前参数重新评估因果路径和节点名，但选项名和 weights 不得变更。
 5. **delta 范围约束**：使用 delta_label（强正向/中正向/弱正向/无影响/弱负向/中负向/强负向），对应数值为 ±15/±10/±5/0。
@@ -156,7 +158,7 @@ export const DECISION_REFINE_PROMPT = `你是一个资深的决策科学专家�
         "step": 0, "value": <0-100>,
         "logic_payload": {
           "key_impact": "<核心影响>", "risk_level": "<低|中|高>", "primary_reason": "<核心理由>",
-          "trade_offs": [{ "dimension": "<必须是variables中定义的变量名>", "delta_label": "<定性标签>" }],
+          "trade_offs": [{ "dimension": "<权重中的每一个变量名>", "delta_label": "<定性标签>" }],
           "opportunity_cost": "<机会成本>"
         },
         "children": [
@@ -329,7 +331,8 @@ export const DECISION_SEE_STEP2_PROMPT = `你是决策科学专家：因果决�
 6. probability_label 只能是：极高 | 高 | 中 | 低 | 极低
 7. delta_label 只能是：强正向 | 中正向 | 弱正向 | 无影响 | 弱负向 | 中负向 | 强负向
 8. trade_off 中的变量名必须是 Step 1 中定义的变量名。
-9. risk_adjustment 格式：保守:[数字] | 均衡:0 | 激进:[数字]
+9. 每个 Option 节点和 L1 Event 节点的 trade_off 条目必须覆盖 Step 1 定义的全部变量，不得遗漏任何维度。
+10. risk_adjustment 格式：保守:[数字] | 均衡:0 | 激进:[数字]
 
 【Output Format】
 仅输出以下 Markdown 格式文本，不要任何 JSON、开场白或结尾文字。
@@ -341,8 +344,10 @@ export const DECISION_SEE_STEP2_PROMPT = `你是决策科学专家：因果决�
     risk_level: [低|中|高]
     primary_reason: [一句话核心理由]
     opportunity_cost: [一句话机会成本]
-    trade_off: [变量名] -> [delta_label]
-    trade_off: [变量名] -> [delta_label]
+    trade_off: [变量1名] -> [delta_label]
+    trade_off: [变量2名] -> [delta_label]
+    trade_off: [变量3名] -> [delta_label]
+    trade_off: [变量4名] -> [delta_label]
     risk_adjustment: 保守:[数字] | 均衡:0 | 激进:[数字]
     [END_PAYLOAD]
     - Event: [L1事件1名称，4-6字] | Type: [positive|negative|neutral] | Value: [0-100评分]
@@ -351,7 +356,10 @@ export const DECISION_SEE_STEP2_PROMPT = `你是决策科学专家：因果决�
       risk_level: [低|中|高]
       primary_reason: [理由]
       opportunity_cost: [机会成本]
-      trade_off: [变量名] -> [delta_label]
+      trade_off: [变量1名] -> [delta_label]
+      trade_off: [变量2名] -> [delta_label]
+      trade_off: [变量3名] -> [delta_label]
+      trade_off: [变量4名] -> [delta_label]
       [END_PAYLOAD]
       - State: [L2终局状态名，4-6字] | Type: [positive|negative|neutral] | Value: [0-100评分] | Prob: [极高|高|中|低|极低]
     - Event: [L1事件2名称，4-6字] | Type: [positive|negative|neutral] | Value: [0-100评分]
@@ -360,7 +368,10 @@ export const DECISION_SEE_STEP2_PROMPT = `你是决策科学专家：因果决�
       risk_level: [低|中|高]
       primary_reason: [理由]
       opportunity_cost: [机会成本]
-      trade_off: [变量名] -> [delta_label]
+      trade_off: [变量1名] -> [delta_label]
+      trade_off: [变量2名] -> [delta_label]
+      trade_off: [变量3名] -> [delta_label]
+      trade_off: [变量4名] -> [delta_label]
       [END_PAYLOAD]
       - State: [L2终局状态名，4-6字] | Type: [positive|negative|neutral] | Value: [0-100评分] | Prob: [极高|高|中|低|极低]
   - Option: [选项2名称]
@@ -407,7 +418,7 @@ export const DECISION_NEXUS_PROMPT = `你是一个决策综合报告生成器（
 你收到了来自多个 Agent 的分析结果，请整合为一份简洁的决策建议。
 
 ### 置信度判断依据
-以下数据供你评估结论的可信度，请综合判断后输出 0-100 的数值：
+以下数据供你评估结论的可信度，请综合判断后输出定性标签（从"极高/高/中/低/极低"中选择一项）：
 - **第一名与第二名分差**：分差越大，排名越稳定，置信度越高
 - **审查问题统计**：high/medium/low 级别问题越多，置信度越低
 - **敏感性排名翻转次数**：翻转次数越多，结论越不稳定
@@ -415,9 +426,11 @@ export const DECISION_NEXUS_PROMPT = `你是一个决策综合报告生成器（
 - **蒙特卡洛平均标准差**：σ 越大，排名越不确定
 
 **置信度分级参考**：
-- >85 分：逻辑链条闭环，无明显矛盾
-- 60-85 分：存在部分疑问但不影响核心结论
-- <60 分：存在重大矛盾或数据不足，结论存疑
+- 极高：逻辑链条完美闭环，无任何矛盾
+- 高：逻辑链条基本自洽，存在少量疑问但不影响核心结论
+- 中：存在部分矛盾或数据不足，但核心结论仍有依据
+- 低：存在重大矛盾或数据严重不足，结论存疑
+- 极低：数据结构崩溃或关键假设不成立
 
 仅返回纯净 JSON，禁止 Markdown、开场白或结尾文字。
 
@@ -426,7 +439,8 @@ export const DECISION_NEXUS_PROMPT = `你是一个决策综合报告生成器（
   "executive_summary": "<2-3句话的决策建议>",
   "recommendation": "<推荐方案及核心理由>",
   "key_insights": ["<洞察1>", "<洞察2>", "<洞察3>"],
-  "confidence_level": <0-100的数值>,
+  "confidence_label": "极高|高|中|低|极低",
+  "confidence_score": 0,
   "caveats": ["<需要注意的事项1>", "<事项2>"]
 }
 `

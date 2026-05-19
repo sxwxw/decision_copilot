@@ -9,7 +9,7 @@ import {
   numberToProbabilityLabel,
   numberToDeltaLabel,
 } from './qualitativeMap.js'
-import { normalizeProbabilities } from '../engines/probNormalizer.js'
+import { normalizeProbabilities } from './probNormalizer.js'
 
 /** 定性标签到数值的查表转换 */
 function resolveProbabilityLabel(label) {
@@ -168,6 +168,90 @@ export function validateModel(raw) {
       }
     }
   }
+
+  // ── 拓扑完备性校验（Task 4）──
+
+  // 4.1 孤立节点检测：中间层节点（非叶子/非根）有父无子/有子无父
+  function checkIsolatedNodes(treeData) {
+    if (!treeData || !Array.isArray(treeData.children)) return
+    function traverseNode(node) {
+      if (!node.children || !Array.isArray(node.children)) return
+      for (const child of node.children) {
+        if (!child.name) continue
+        const hasChildren = Array.isArray(child.children) && child.children.length > 0
+        const hasPayload = child.logic_payload && Array.isArray(child.logic_payload.trade_offs)
+        // 有子节点但无 payload → 有子无父（中间节点缺失决策信息）
+        if (hasChildren && !hasPayload) {
+          errors.push({ field: `treeData.${child.name}`, message: `节点 "${child.name}" 有子推演但缺少决策权衡（孤立节点）`, severity: 'error' })
+        }
+        traverseNode(child)
+      }
+    }
+    for (const optionNode of treeData.children) {
+      traverseNode(optionNode)
+    }
+  }
+  if (treeData) checkIsolatedNodes(treeData)
+
+  // 4.2 断头路检测：路径中途终止且无终审损益表现
+  function checkDeadEndPaths(treeData) {
+    if (!treeData || !Array.isArray(treeData.children)) return
+    for (const optionNode of treeData.children) {
+      if (!optionNode.children) continue
+      function traverseForDeadEnd(node) {
+        if (!node.children || !Array.isArray(node.children)) return
+        for (const child of node.children) {
+          const hasGrandChildren = Array.isArray(child.children) && child.children.length > 0
+          const hasPayload = child.logic_payload
+          // 有子节点但无 payload → 断头路（推演到一半断了）
+          if (hasGrandChildren && !hasPayload) {
+            errors.push({ field: `treeData.${child.name}`, message: `节点 "${child.name}" 有下级推演但缺少决策权衡分析（断头路）`, severity: 'error' })
+          }
+          traverseForDeadEnd(child)
+        }
+      }
+      traverseForDeadEnd(optionNode)
+    }
+  }
+  if (treeData) checkDeadEndPaths(treeData)
+
+  // 4.3 因果循环检测：DFS 遍历 treeData 检测 A → B → C → A 环路
+  function detectCycles(treeData) {
+    if (!treeData || !Array.isArray(treeData.children)) return
+    const visited = new Set()
+    const recursionStack = new Set()
+
+    function dfs(node, path) {
+      if (!node || !node.name) return
+      const nodeId = node.name
+
+      if (recursionStack.has(nodeId)) {
+        const cycleStart = path.indexOf(nodeId)
+        if (cycleStart >= 0) {
+          const cyclePath = path.slice(cycleStart).concat(nodeId)
+          errors.push({ field: 'treeData', message: `因果循环检测发现环路: ${cyclePath.join(' → ')}`, severity: 'warning' })
+        }
+        return
+      }
+
+      if (visited.has(nodeId)) return
+
+      visited.add(nodeId)
+      recursionStack.add(nodeId)
+      path.push(nodeId)
+
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) {
+          dfs(child, [...path])
+        }
+      }
+
+      recursionStack.delete(nodeId)
+    }
+
+    dfs(treeData, [])
+  }
+  if (treeData) detectCycles(treeData)
 
   return errors
 }
@@ -344,6 +428,23 @@ export function sanitizeModel(raw) {
   // 1i. 加权推导缺失维度的 trade_offs
   if (d.treeData && Array.isArray(d.paths)) {
     deriveTradeoffs(d.treeData, d.paths)
+  }
+
+  // 1j. 强制补齐 weights 中所有维度到每个 Option 的 trade_offs
+  if (d.treeData && Array.isArray(d.treeData.children) && Object.keys(d.weights).length > 0) {
+    const weightedDims = Object.keys(d.weights)
+    for (const optionNode of d.treeData.children) {
+      if (!optionNode.logic_payload?.trade_offs) {
+        optionNode.logic_payload = optionNode.logic_payload || {}
+        optionNode.logic_payload.trade_offs = []
+      }
+      const existingDims = new Set(optionNode.logic_payload.trade_offs.map(t => t.dimension))
+      for (const dim of weightedDims) {
+        if (!existingDims.has(dim)) {
+          optionNode.logic_payload.trade_offs.push({ dimension: dim, delta: 0, delta_label: "无影响" })
+        }
+      }
+    }
   }
 
   return d

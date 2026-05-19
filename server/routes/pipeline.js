@@ -38,8 +38,24 @@ const USE_REAL_LLM = process.env.USE_REAL_LLM === 'true'
 const pipelineState = {}
 
 const MAX_PIPELINE_ENTRIES = 100
-const MAX_OUTER_LOOP = 5
+const MAX_OUTER_LOOP = 1
 const PIPELINE_TTL_MS = 24 * 60 * 60 * 1000
+
+/** Confidence label → base score lookup for circuit breaker */
+const CONFIDENCE_LABEL_TO_SCORE = {
+  '极高': { base: 90 },
+  '高': { base: 70 },
+  '中': { base: 50 },
+  '低': { base: 30 },
+  '极低': { base: 10 },
+}
+
+/** Gradient deduction table for WARNING-level signals */
+const WARNING_DEDUCTIONS = {
+  TOPOLOGY_LOOP: 5,
+  SIMULATION_OSCILLATION: 3,
+  MINIMAL_DATA_MISSING: 2,
+}
 
 function cleanupPipelineState() {
   const now = Date.now()
@@ -72,7 +88,7 @@ router.post('/framework', async (req, res) => {
 
   if (USE_REAL_LLM) {
     try {
-      let result = await callQwen(DECISION_FRAMEWORK_PROMPT, userInput, DECISION_MODEL, 1, false)
+      let result = await callQwen(DECISION_FRAMEWORK_PROMPT, userInput, DECISION_MODEL, 1, false, true, 'rational')
       if (Array.isArray(result)) result = result[0]
       console.log('[Pipeline] FRAMEWORK step done, options:', result?.options)
 
@@ -115,7 +131,7 @@ router.post('/build-model', async (req, res) => {
       const userPrompt = `用户问题：${userInput}
 框架定义：${JSON.stringify(frameworkResult)}`
 
-      let result = await callQwen(DECISION_MODEL_DEEP_PROMPT, userPrompt, DECISION_MODEL, 2, false)
+      let result = await callQwen(DECISION_MODEL_DEEP_PROMPT, userPrompt, DECISION_MODEL, 2, false, true, 'rational')
       if (Array.isArray(result)) result = result[0]
       console.log('[Pipeline] MODEL-BUILD step done, options:', result?.options?.length)
 
@@ -177,7 +193,7 @@ async function executeSeeSubPipeline(pipelineId, userInput, framework, sendEvent
       .replace('{{USER_PROMPT}}', userInput)
       .replace('{{FRAMEWORK_JSON}}', JSON.stringify(framework || {}))
 
-    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false, 'rational')
     if (Array.isArray(result)) result = result[0]
     llmCalls++
 
@@ -211,7 +227,7 @@ async function executeSeeSubPipeline(pipelineId, userInput, framework, sendEvent
       .replace('{{FRAMEWORK_JSON}}', JSON.stringify(framework || {}))
       .replace('{{STEP_1_OUTPUT}}', state.seeStep1.raw_text + extra)
 
-    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false, 'rational')
     if (Array.isArray(result)) result = result[0]
     llmCalls++
 
@@ -242,7 +258,7 @@ async function executeSeeSubPipeline(pipelineId, userInput, framework, sendEvent
       .replace('{{STEP_1_OUTPUT}}', state.seeStep1.raw_text)
       .replace('{{STEP_2_OUTPUT}}', state.seeStep2.raw_text + extra)
 
-    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false)
+    let result = await callQwen('', prompt, DECISION_MODEL, 1, false, false, 'rational')
     if (Array.isArray(result)) result = result[0]
     llmCalls++
 
@@ -312,15 +328,108 @@ function determineTargetStep(devilReview) {
   return 1
 }
 
+/**
+ * Confidence circuit breaker — deterministic calculation after Nexus step.
+ * Reads confidence_label → base score, applies WARNING deductions,
+ * enforces ERROR deadlines, writes final value to result.confidence_level.
+ */
+function applyConfidenceCircuitBreaker(nexusResult, state, steps) {
+  const alerts = []
+
+  // 1. Resolve base score from confidence_label (dual-track fallback)
+  let baseScore
+  if (nexusResult.confidence_label && CONFIDENCE_LABEL_TO_SCORE[nexusResult.confidence_label]) {
+    baseScore = CONFIDENCE_LABEL_TO_SCORE[nexusResult.confidence_label].base
+  } else if (typeof nexusResult.confidence_level === 'number') {
+    baseScore = nexusResult.confidence_level
+  } else {
+    baseScore = 50 // default fallback
+  }
+  let finalScore = baseScore
+
+  // 2. Lock 1: Structural ERROR check → cap at 45
+  const validationErrors = state.validationResults || []
+  const structErrors = validationErrors.filter(e => e.severity === 'error')
+  let hasStructError = structErrors.length > 0
+
+  // 3. Lock 2: Monte Carlo non-convergence check
+  const simResult = steps.simulate || {}
+  let hasSimError = false
+  let hasSimWarning = false
+  if (simResult.optionResults && Object.keys(simResult.optionResults).length > 0) {
+    const sigmas = Object.values(simResult.optionResults).map(o => o.sigma || 0).filter(v => typeof v === 'number')
+    const means = Object.values(simResult.optionResults).map(o => o.mean || 0).filter(v => typeof v === 'number' && v > 0)
+    if (sigmas.length > 0 && means.length > 0) {
+      const avgSigma = sigmas.reduce((a, b) => a + b, 0) / sigmas.length
+      const avgMean = means.reduce((a, b) => a + b, 0) / means.length
+      if (avgMean > 0 && avgSigma / avgMean > 0.40) {
+        hasSimWarning = true
+        alerts.push({ type: 'SIMULATION_OSCILLATION', severity: 'WARNING', message: `蒙特卡洛仿真不收敛：σ/μ = ${(avgSigma / avgMean).toFixed(2)} > 0.40`, override_details: { avgSigma: avgSigma.toFixed(2), avgMean: avgMean.toFixed(2), threshold: 0.40 } })
+      }
+    }
+  } else if (simResult.ranking && simResult.ranking.length === 0 && Object.keys(simResult.optionResults || {}).length === 0) {
+    hasSimError = true
+    alerts.push({ type: 'SIMULATION_FAILURE', severity: 'ERROR', message: '蒙特卡洛仿真崩溃或返回空结果', override_details: { action: '锁死置信度为15分' } })
+  }
+
+  // 4. Lock 1+2 combined: structural ERROR + simulation ERROR → lock at 15
+  if (hasStructError && hasSimError) {
+    finalScore = 15
+    alerts.push({ type: 'DUAL_LOCK_FAILURE', severity: 'ERROR', message: '结构校验 ERROR 与仿真 ERROR 同时触发，置信度锁死为 15 分', override_details: { original: baseScore, final: 15 } })
+  } else if (hasStructError) {
+    // Lock 1 only: structural ERROR → cap at 45
+    finalScore = Math.min(finalScore, 45)
+    alerts.push({ type: 'STRUCTURAL_FAILURE', severity: 'ERROR', message: `结构校验发现 ${structErrors.length} 个 ERROR，置信度上限强制降至 45 分`, override_details: { original: baseScore, capped: finalScore } })
+  } else if (hasSimError) {
+    // Lock 2 only: simulation ERROR → lock at 15
+    finalScore = Math.min(finalScore, 15)
+    alerts.push({ type: 'SIMULATION_LOCK_FAILURE', severity: 'ERROR', message: '蒙特卡洛仿真失败，置信度上限强制降至 15 分', override_details: { original: baseScore, capped: finalScore } })
+  }
+
+  // 5. WARNING gradient deductions (only if no ERROR forced override)
+  if (!hasStructError && !hasSimError) {
+    // TOPOLOGY_LOOP from validation warnings
+    const topologyWarnings = validationErrors.filter(e => e.severity === 'warning' && (e.message && (e.message.includes('循环') || e.message.includes('环路') || e.message.includes('loop'))))
+    if (topologyWarnings.length > 0) {
+      finalScore -= WARNING_DEDUCTIONS.TOPOLOGY_LOOP * topologyWarnings.length
+      alerts.push({ type: 'TOPOLOGY_LOOP', severity: 'WARNING', message: `因果循环检测发现 ${topologyWarnings.length} 处环路`, override_details: { deduction: WARNING_DEDUCTIONS.TOPOLOGY_LOOP * topologyWarnings.length } })
+    }
+
+    // SIMULATION_OSCILLATION (already handled above)
+    if (hasSimWarning) {
+      finalScore -= WARNING_DEDUCTIONS.SIMULATION_OSCILLATION
+    }
+
+    // MINIMAL_DATA_MISSING from validation warnings (non-critical field issues)
+    const dataWarnings = validationErrors.filter(e => e.severity === 'warning' && e.field && e.field !== 'paths' && e.field !== 'weights')
+    if (dataWarnings.length > 0) {
+      finalScore -= WARNING_DEDUCTIONS.MINIMAL_DATA_MISSING * Math.min(dataWarnings.length, 3)
+      alerts.push({ type: 'MINIMAL_DATA_MISSING', severity: 'WARNING', message: `非核心字段缺失 ${dataWarnings.length} 处`, override_details: { deduction: WARNING_DEDUCTIONS.MINIMAL_DATA_MISSING * Math.min(dataWarnings.length, 3) } })
+    }
+  }
+
+  finalScore = Math.max(0, Math.min(100, finalScore))
+
+  // 6. Write back to confidence_level for outer loop check and frontend display
+  nexusResult.confidence_level = finalScore
+
+  // 7. Attach v2_system_alerts
+  if (alerts.length > 0) {
+    nexusResult.v2_system_alerts = alerts
+  }
+
+  return { baseScore, finalScore, alerts }
+}
+
 const PIPELINE_STEPS = [
-  { name: 'framework', prompt: DECISION_FRAMEWORK_PROMPT, model: DECISION_MODEL, retries: 1 },
-  { name: 'devil-framework', prompt: DECISION_DEVIL_FRAMEWORK_PROMPT, model: DECISION_MODEL, retries: 1 },
-  { name: 'build-model', prompt: DECISION_MODEL_DEEP_PROMPT, model: DECISION_MODEL, retries: 2 },
-  { name: 'devil-model', prompt: DECISION_DEVIL_MODEL_PROMPT, model: DECISION_MODEL, retries: 1 },
-  { name: 'simulate', prompt: null, model: null, retries: 0 },
-  { name: 'devil-simulate', prompt: DECISION_DEVIL_SIMULATE_PROMPT, model: DECISION_MODEL, retries: 1 },
-  { name: 'devil-nexus', prompt: DECISION_DEVIL_NEXUS_PROMPT, model: DECISION_MODEL, retries: 1 },
-  { name: 'nexus', prompt: DECISION_NEXUS_PROMPT, model: DECISION_MODEL, retries: 1 },
+  { name: 'framework', prompt: DECISION_FRAMEWORK_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'rational' },
+  { name: 'devil-framework', prompt: DECISION_DEVIL_FRAMEWORK_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'adversarial' },
+  { name: 'build-model', prompt: DECISION_MODEL_DEEP_PROMPT, model: DECISION_MODEL, retries: 2, mode: 'rational' },
+  { name: 'devil-model', prompt: DECISION_DEVIL_MODEL_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'adversarial' },
+  { name: 'simulate', prompt: null, model: null, retries: 0, mode: null },
+  { name: 'devil-simulate', prompt: DECISION_DEVIL_SIMULATE_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'adversarial' },
+  { name: 'devil-nexus', prompt: DECISION_DEVIL_NEXUS_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'adversarial' },
+  { name: 'nexus', prompt: DECISION_NEXUS_PROMPT, model: DECISION_MODEL, retries: 1, mode: 'rational' },
 ]
 
 /**
@@ -468,24 +577,31 @@ ${steps['devil-model'] ? `\n- 模型审查意见：${JSON.stringify(steps['devil
         }
 
         const framework = steps.framework || {}
-        const seeResult = await executeSeeSubPipeline(
-          pipelineId, userInput, framework, sendEvent, {
-            fromStepIdx: seeFromIdx,
-            innerLoopDirectives: seeFromIdx === 0 ? innerDirectives : null,
-            defeatContext: outerDefeat,
-            currentModel: currentModel || null,
-          },
-        )
-
-        steps['build-model'] = seeResult
+        try {
+          const seeResult = await executeSeeSubPipeline(
+            pipelineId, userInput, framework, sendEvent, {
+              fromStepIdx: seeFromIdx,
+              innerLoopDirectives: seeFromIdx === 0 ? innerDirectives : null,
+              defeatContext: outerDefeat,
+              currentModel: currentModel || null,
+            },
+          )
+          steps['build-model'] = seeResult
+        } catch (seeErr) {
+          console.error(`[SEE] build-model failed:`, seeErr.message)
+          steps['build-model'] = { error: seeErr.message }
+        }
         pipelineState[pipelineId].lastStep = step.name
 
-        const validationResults = validateModel(seeResult)
-        if (validationResults.length > 0) {
-          pipelineState[pipelineId].validationResults = validationResults
-          const errorCount = validationResults.filter(e => e.severity === 'error').length
-          const warningCount = validationResults.filter(e => e.severity === 'warning').length
-          console.log(`[Pipeline] build-model validation: ${errorCount} errors, ${warningCount} warnings`)
+        const seeResultOrError = steps['build-model']
+        if (!seeResultOrError.error) {
+          const validationResults = validateModel(seeResultOrError)
+          if (validationResults.length > 0) {
+            pipelineState[pipelineId].validationResults = validationResults
+            const errorCount = validationResults.filter(e => e.severity === 'error').length
+            const warningCount = validationResults.filter(e => e.severity === 'warning').length
+            console.log(`[Pipeline] build-model validation: ${errorCount} errors, ${warningCount} warnings`)
+          }
         }
 
         if (innerDirectives) devilDirectives = null
@@ -515,7 +631,7 @@ ${steps['devil-model'] ? `\n- 模型审查意见：${JSON.stringify(steps['devil
       const mcRanking = mcResult.ranking || []
       const mcSigmaAvg = Object.values(mcResult.optionResults || {}).reduce((sum, opt) => sum + (opt.sigma || 0), 0) / Math.max(1, Object.keys(mcResult.optionResults || {}).length)
       const confidenceSignals = `
-### 置信度判断信号（供 LLM 综合评估 0-100）
+### 置信度判断信号（请综合评估后输出 confidence_label 定性标签）
 - 第一名与第二名分差：${scoreGap.toFixed(1)}
 - 审查问题统计：high=${devilCounts.high}, medium=${devilCounts.medium}, low=${devilCounts.low}
 - 路径概率总和：${probSum.toFixed(2)}
@@ -546,7 +662,7 @@ ${confidenceSignals}`
     }
 
     if (USE_REAL_LLM) {
-      let result = await callQwen(step.prompt, userPrompt, step.model, step.retries, false)
+      let result = await callQwen(step.prompt, userPrompt, step.model, step.retries, false, true, step.mode)
       if (Array.isArray(result)) result = result[0]
 
       if (step.name === 'build-model') {
@@ -555,6 +671,12 @@ ${confidenceSignals}`
 
       pipelineState[pipelineId].steps[step.name] = result
       pipelineState[pipelineId].lastStep = step.name
+
+      // Confidence circuit breaker: intercept after nexus step
+      if (step.name === 'nexus') {
+        const circuitResult = applyConfidenceCircuitBreaker(result, pipelineState[pipelineId], steps)
+        console.log(`[Pipeline] Confidence circuit: base=${circuitResult.baseScore}, final=${circuitResult.finalScore}, alerts=${circuitResult.alerts.length}`)
+      }
 
       if (step.name === 'devil-model') {
         const review = sanitizeDevilReview(result)
@@ -685,8 +807,13 @@ ${overrideReason ? `\n- **安全干预**：${overrideReason}` : ''}
                 const nexusPrompt = `综合所有分析结果，生成最终决策报告。
 模型：${JSON.stringify(model)}
 ${confidenceSignals2}${v2Critique}`
-                let nexusResult = await callQwen(DECISION_NEXUS_PROMPT, nexusPrompt, DECISION_MODEL, 1, false)
+                let nexusResult = await callQwen(DECISION_NEXUS_PROMPT, nexusPrompt, DECISION_MODEL, 1, false, true, 'rational')
                 if (Array.isArray(nexusResult)) nexusResult = nexusResult[0]
+
+                // Apply confidence circuit breaker for V2
+                const v2Circuit = applyConfidenceCircuitBreaker(nexusResult, pipelineState[pipelineId], steps)
+                console.log(`[Pipeline] V2 circuit: base=${v2Circuit.baseScore}, final=${v2Circuit.finalScore}, alerts=${v2Circuit.alerts.length}`)
+
                 if (v2ErrorCount > 0) {
                   nexusResult.confidence_level = Math.min(nexusResult.confidence_level || 100, 40)
                   nexusResult.override_reason = '底层因果图发生断头路，量化底座失效'
@@ -933,7 +1060,7 @@ ${userPrefs}
 2. 针对败因上下文中指出的问题进行修正
 3. 保持结构一致
 `
-      let result = await callQwen(DECISION_MODEL_DEEP_PROMPT, correctionPrompt, DECISION_MODEL, 2, false)
+      let result = await callQwen(DECISION_MODEL_DEEP_PROMPT, correctionPrompt, DECISION_MODEL, 2, false, true, 'rational')
       if (Array.isArray(result)) result = result[0]
 
       const validationErrors = validateModel(result)

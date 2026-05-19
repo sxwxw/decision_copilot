@@ -4,12 +4,22 @@ const QWEN_API_URL = process.env.DASHSCOPE_API_URL || 'https://dashscope.aliyunc
 const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus'
 const API_KEY = process.env.DASHSCOPE_API_KEY || ''
 
-export async function callQwen(systemPrompt, userPrompt, model, retries = 2, enableThinking = false, jsonMode = true) {
+export async function callQwen(systemPrompt, userPrompt, model, retries = 2, enableThinking = false, jsonMode = true, mode) {
   if (!API_KEY) {
     throw new Error('DASHSCOPE_API_KEY not configured')
   }
 
   const modelName = model || QWEN_MODEL;
+
+  let temperature = 0.7;
+  let seed;
+  if (mode === 'rational') {
+    temperature = 0.05;
+    seed = 42;
+  } else if (mode === 'adversarial') {
+    temperature = 0.45;
+    seed = Math.floor(Math.random() * 10000);
+  }
 
   let enhancedUserPrompt = userPrompt
   if (jsonMode) {
@@ -20,7 +30,7 @@ export async function callQwen(systemPrompt, userPrompt, model, retries = 2, ena
   }
 
   const sysLen = systemPrompt ? systemPrompt.length : 0
-  console.log('[callQwen] model:', modelName, '| url:', QWEN_API_URL, '| system_len:', sysLen, '| user_len:', userPrompt.length, '| jsonMode:', jsonMode)
+  console.log('[callQwen] model:', modelName, '| mode:', mode || '(default)', '| temperature:', temperature, '| system_len:', sysLen, '| user_len:', userPrompt.length, '| jsonMode:', jsonMode)
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const body = {
@@ -29,8 +39,11 @@ export async function callQwen(systemPrompt, userPrompt, model, retries = 2, ena
           { role: 'system', content: systemPrompt || '' },
           { role: 'user', content: enhancedUserPrompt },
         ],
-        temperature: 0.7,
+        temperature,
         enable_thinking: enableThinking,
+      }
+      if (seed !== undefined) {
+        body.seed = seed;
       }
       if (jsonMode) {
         body.response_format = { type: 'json_object' }

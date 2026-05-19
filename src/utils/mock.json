@@ -1,30 +1,15 @@
 {
     "version": 1,
-    "timestamp": 1779036240547,
-    "userInput": "我们正在考虑是否上线一个 AI 自动化功能，用于提升用户使用效率。当前用户规模稳定，但增长放缓。该功能预计可以提升用户活跃度和转化率，但开发成本较高，需要投入两到三个月的研发资源，技术上存在一定不确定性，可能影响系统稳定性。需要决策：我们应该现在上线该 AI 功能，还是继续优化现有产品？希望重点考虑：收入增长潜力、用户增长空间、技术风险、资源投入成本。",
+    "timestamp": 1779184172117,
+    "userInput": "我要上线AI还是优化现有项目？",
     "model": {
         "options": [
-            "上线 AI 自动化功能",
-            "继续优化现有产品"
+            "上线AI新功能/产品",
+            "优化现有项目"
         ],
         "variables": [
             {
-                "name": "收入增长潜力",
-                "type": "slider",
-                "range": [
-                    0,
-                    100
-                ],
-                "sim_spec": {
-                    "type": "lognormal",
-                    "params": {
-                        "mean": 50,
-                        "sd": 30
-                    }
-                }
-            },
-            {
-                "name": "用户增长空间",
+                "name": "短期收益确定性",
                 "type": "slider",
                 "range": [
                     0,
@@ -33,36 +18,28 @@
                 "sim_spec": {
                     "type": "beta",
                     "params": {
-                        "alpha": 2,
-                        "beta": 5
+                        "alpha": 8,
+                        "beta": 2
                     }
                 }
             },
             {
-                "name": "合规与声誉风险",
+                "name": "长期增长潜力",
                 "type": "slider",
                 "range": [
                     0,
                     100
                 ],
                 "sim_spec": {
-                    "type": "categorical",
+                    "type": "lognormal",
                     "params": {
-                        "values": [
-                            0,
-                            20,
-                            80
-                        ],
-                        "probabilities": [
-                            0.6,
-                            0.3,
-                            0.1
-                        ]
+                        "mean": 4,
+                        "sd": 0.8
                     }
                 }
             },
             {
-                "name": "资源投入成本",
+                "name": "实施复杂度与成本",
                 "type": "slider",
                 "range": [
                     0,
@@ -71,9 +48,24 @@
                 "sim_spec": {
                     "type": "triangular",
                     "params": {
-                        "min": 40,
+                        "min": 30,
                         "mode": 60,
                         "max": 90
+                    }
+                }
+            },
+            {
+                "name": "市场竞争差异化",
+                "type": "slider",
+                "range": [
+                    0,
+                    100
+                ],
+                "sim_spec": {
+                    "type": "uniform",
+                    "params": {
+                        "min": 20,
+                        "max": 80
                     }
                 }
             },
@@ -103,45 +95,49 @@
             }
         ],
         "weights": {
-            "收入增长潜力": 0.35,
-            "用户增长空间": 0.25,
-            "合规与声誉风险": 0.25,
-            "资源投入成本": 0.15
+            "短期收益确定性": 0.35,
+            "长期增长潜力": 0.3,
+            "实施复杂度与成本": 0.2,
+            "市场竞争差异化": 0.15
         },
         "treeData": {
             "id": "n-1",
-            "name": "AI决策评估",
+            "name": "战略路径抉择",
             "step": 0,
             "score": 100,
             "status": null,
             "probability": null,
+            "cumulativeProbability": null,
             "isDashed": false,
             "children": [
                 {
                     "id": "n-2",
-                    "name": "上线 AI 自动化功能",
+                    "name": "上线AI新功能/产品",
                     "step": 1,
-                    "score": 65,
+                    "score": 50,
                     "status": null,
                     "probability": 0.5,
+                    "cumulativeProbability": null,
                     "isDashed": false,
                     "children": [
                         {
                             "id": "n-3",
-                            "name": "模型表现优异",
+                            "name": "技术突破获客",
                             "step": 2,
                             "score": 85,
                             "status": "positive",
-                            "probability": 0.74,
+                            "probability": 0.26,
+                            "cumulativeProbability": 0.25,
                             "isDashed": true,
                             "children": [
                                 {
                                     "id": "n-4",
-                                    "name": "用户活跃激增",
+                                    "name": "确立领先优势",
                                     "step": 3,
                                     "score": 90,
                                     "status": "positive",
                                     "probability": 1,
+                                    "cumulativeProbability": null,
                                     "isDashed": true,
                                     "children": [],
                                     "pathIds": []
@@ -149,40 +145,37 @@
                             ],
                             "pathIds": [],
                             "logic_payload": {
-                                "key_impact": "转化率显著提升",
+                                "key_impact": "AI功能成功建立护城河，实现市场差异化与指数级增长",
                                 "risk_level": "中",
-                                "primary_reason": "AI准确率高，用户感知价值强，无重大合规事故",
+                                "primary_reason": "克服技术复杂性后形成竞争壁垒，但需警惕快速同质化",
+                                "opportunity_cost": "高昂的初始研发投入与团队磨合时间",
                                 "trade_offs": [
                                     {
-                                        "dimension": "收入增长潜力",
+                                        "dimension": "市场竞争差异化",
                                         "delta_label": "强正向",
                                         "delta": 15
-                                    },
-                                    {
-                                        "dimension": "合规与声誉风险",
-                                        "delta_label": "弱正向",
-                                        "delta": 5
                                     }
-                                ],
-                                "opportunity_cost": "无额外机会成本，实现预期收益"
+                                ]
                             }
                         },
                         {
                             "id": "n-5",
-                            "name": "发生合规事故",
+                            "name": "落地失败滞销",
                             "step": 2,
-                            "score": 10,
+                            "score": 20,
                             "status": "negative",
-                            "probability": 0.26,
+                            "probability": 0.74,
+                            "cumulativeProbability": 0.7,
                             "isDashed": true,
                             "children": [
                                 {
                                     "id": "n-6",
-                                    "name": "遭受巨额罚款",
+                                    "name": "陷入亏损困境",
                                     "step": 3,
-                                    "score": 5,
+                                    "score": 15,
                                     "status": "negative",
                                     "probability": 1,
+                                    "cumulativeProbability": null,
                                     "isDashed": true,
                                     "children": [],
                                     "pathIds": []
@@ -190,56 +183,52 @@
                             ],
                             "pathIds": [],
                             "logic_payload": {
-                                "key_impact": "品牌声誉受损及罚款",
+                                "key_impact": "高投入未能转化为有效产出，面临技术债务与资源浪费",
                                 "risk_level": "高",
-                                "primary_reason": "AI产生幻觉导致数据泄露或歧视性输出，引发监管介入",
+                                "primary_reason": "AI幻觉问题导致体验受损，或市场付费意愿远低于预期",
+                                "opportunity_cost": "错失优化现有业务以巩固基本盘的最佳窗口期",
                                 "trade_offs": [
                                     {
-                                        "dimension": "合规与声誉风险",
-                                        "delta_label": "强负向",
-                                        "delta": -15
-                                    },
-                                    {
-                                        "dimension": "收入增长潜力",
+                                        "dimension": "实施复杂度与成本",
                                         "delta_label": "强负向",
                                         "delta": -15
                                     }
-                                ],
-                                "opportunity_cost": "需投入大量资源进行危机公关及系统回滚，业务停滞"
+                                ]
                             }
                         }
                     ],
-                    "pathIds": [],
+                    "pathIds": [
+                        "P1",
+                        "P2"
+                    ],
                     "logic_payload": {
-                        "key_impact": "高收益伴随高离散风险",
+                        "key_impact": "以高成本和高不确定性博取非线性增长与差异化壁垒",
                         "risk_level": "高",
-                        "primary_reason": "通过技术革新打破增长瓶颈，但面临幻觉及合规黑天鹅风险",
+                        "primary_reason": "技术落地存在幻觉风险且市场接受度未验证，置信区间极宽",
+                        "opportunity_cost": "牺牲短期稳定现金流及现有业务维护资源",
                         "trade_offs": [
                             {
-                                "dimension": "收入增长潜力",
-                                "delta_label": "强正向",
-                                "delta": 15
-                            },
-                            {
-                                "dimension": "合规与声誉风险",
+                                "dimension": "短期收益确定性",
                                 "delta_label": "强负向",
                                 "delta": -15
                             },
                             {
-                                "dimension": "资源投入成本",
-                                "delta_label": "中负向",
-                                "delta": -10
+                                "dimension": "长期增长潜力",
+                                "delta_label": "强正向",
+                                "delta": 15
                             },
                             {
-                                "dimension": "用户增长空间",
-                                "delta_label": "中正向",
-                                "delta": 10
+                                "dimension": "市场竞争差异化",
+                                "delta": 0
+                            },
+                            {
+                                "dimension": "实施复杂度与成本",
+                                "delta": 0
                             }
                         ],
-                        "opportunity_cost": "占用核心研发资源2-3个月，若失败则错失现有产品迭代窗口",
                         "risk_adjustment": {
                             "保守": {
-                                "offset": -20
+                                "offset": -25
                             },
                             "均衡": {
                                 "offset": 0
@@ -252,29 +241,32 @@
                 },
                 {
                     "id": "n-7",
-                    "name": "继续优化现有产品",
+                    "name": "优化现有项目",
                     "step": 1,
-                    "score": 70,
+                    "score": 50,
                     "status": null,
                     "probability": 0.5,
+                    "cumulativeProbability": null,
                     "isDashed": false,
                     "children": [
                         {
                             "id": "n-8",
-                            "name": "体验稳步提升",
+                            "name": "效率提升留存",
                             "step": 2,
                             "score": 75,
                             "status": "positive",
                             "probability": 0.64,
+                            "cumulativeProbability": 0.9,
                             "isDashed": true,
                             "children": [
                                 {
                                     "id": "n-9",
-                                    "name": "维持市场地位",
+                                    "name": "稳健持续盈利",
                                     "step": 3,
-                                    "score": 70,
-                                    "status": "neutral",
+                                    "score": 80,
+                                    "status": "positive",
                                     "probability": 1,
+                                    "cumulativeProbability": null,
                                     "isDashed": true,
                                     "children": [],
                                     "pathIds": []
@@ -282,40 +274,37 @@
                             ],
                             "pathIds": [],
                             "logic_payload": {
-                                "key_impact": "留存率微幅改善",
+                                "key_impact": "用户体验改善带来稳定的收入增长与客户忠诚度提升",
                                 "risk_level": "低",
-                                "primary_reason": "已知技术栈优化，效果可预测，无突发故障",
+                                "primary_reason": "基于成熟业务的边际改进，结果具有高度可预测性",
+                                "opportunity_cost": "无法在新兴AI赛道占据先发位置，品牌科技感弱化",
                                 "trade_offs": [
                                     {
-                                        "dimension": "收入增长潜力",
-                                        "delta_label": "弱正向",
-                                        "delta": 5
-                                    },
-                                    {
-                                        "dimension": "用户增长空间",
-                                        "delta_label": "弱正向",
-                                        "delta": 5
+                                        "dimension": "短期收益确定性",
+                                        "delta_label": "中正向",
+                                        "delta": 10
                                     }
-                                ],
-                                "opportunity_cost": "无显著机会成本，资源利用效率高"
+                                ]
                             }
                         },
                         {
                             "id": "n-10",
-                            "name": "增长持续乏力",
+                            "name": "瓶颈难以突破",
                             "step": 2,
-                            "score": 50,
+                            "score": 45,
                             "status": "negative",
                             "probability": 0.36,
+                            "cumulativeProbability": 0.5,
                             "isDashed": true,
                             "children": [
                                 {
                                     "id": "n-11",
-                                    "name": "竞品超越我们",
+                                    "name": "缓慢边缘化",
                                     "step": 3,
                                     "score": 40,
                                     "status": "negative",
                                     "probability": 1,
+                                    "cumulativeProbability": null,
                                     "isDashed": true,
                                     "children": [],
                                     "pathIds": []
@@ -323,56 +312,48 @@
                             ],
                             "pathIds": [],
                             "logic_payload": {
-                                "key_impact": "市场份额缓慢流失",
+                                "key_impact": "边际效应递减导致投入产出比下降，市场份额被侵蚀",
                                 "risk_level": "中",
-                                "primary_reason": "竞品采用AI技术形成代差，现有优化无法吸引新用户",
+                                "primary_reason": "现有架构限制创新空间，竞争对手可能通过AI实现降维打击",
+                                "opportunity_cost": "在行业技术范式转移期间丧失战略主动权",
                                 "trade_offs": [
                                     {
-                                        "dimension": "用户增长空间",
-                                        "delta_label": "中负向",
-                                        "delta": -10
-                                    },
-                                    {
-                                        "dimension": "收入增长潜力",
+                                        "dimension": "市场竞争差异化",
                                         "delta_label": "弱负向",
                                         "delta": -5
                                     }
-                                ],
-                                "opportunity_cost": "长期来看，品牌老化导致获客成本急剧上升"
+                                ]
                             }
                         }
                     ],
-                    "pathIds": [],
+                    "pathIds": [
+                        "P3",
+                        "P4"
+                    ],
                     "logic_payload": {
-                        "key_impact": "稳健边际收益",
+                        "key_impact": "通过低风险迭代巩固基本盘，确保短期现金流稳定",
                         "risk_level": "低",
-                        "primary_reason": "规避AI不可控风险，确保现金流稳定，但增长天花板明显",
+                        "primary_reason": "技术路径清晰且成本可控，但缺乏突破性增长引擎",
+                        "opportunity_cost": "放弃利用AI技术重构业务以获取长期爆发潜力的机会",
                         "trade_offs": [
                             {
-                                "dimension": "合规与声誉风险",
+                                "dimension": "短期收益确定性",
                                 "delta_label": "强正向",
                                 "delta": 15
                             },
                             {
-                                "dimension": "资源投入成本",
-                                "delta_label": "弱正向",
-                                "delta": 5
+                                "dimension": "长期增长潜力",
+                                "delta_label": "弱负向",
+                                "delta": -5
                             },
                             {
-                                "dimension": "收入增长潜力",
-                                "delta_label": "弱正向",
-                                "delta": 5
-                            },
-                            {
-                                "dimension": "用户增长空间",
-                                "delta_label": "无影响",
+                                "dimension": "市场竞争差异化",
                                 "delta": 0
                             }
                         ],
-                        "opportunity_cost": "放弃通过AI技术实现弯道超车的潜在高回报机会",
                         "risk_adjustment": {
                             "保守": {
-                                "offset": 15
+                                "offset": 5
                             },
                             "均衡": {
                                 "offset": 0
@@ -385,234 +366,178 @@
                 }
             ],
             "pathIds": [
-                "path-1",
-                "path-2",
-                "path-3",
-                "path-4"
+                "P1",
+                "P2",
+                "P3",
+                "P4"
             ],
             "_version": 0
         },
         "paths": [
             {
-                "id": "path-1",
-                "name": "上线 AI → 模型优异 → 活跃激增",
-                "probability_label": "高",
-                "explanation": "在技术可控且无重大合规漏洞的前提下，AI功能成功提升用户体验并转化为收入。",
-                "timeline": [
-                    {
-                        "event": "模型表现优异",
-                        "probability_label": "高",
-                        "description": "AI功能上线后运行稳定，幻觉率在可接受范围，未触发合规红线。",
-                        "impact": {
-                            "收入增长潜力": 25,
-                            "用户增长空间": 20,
-                            "合规与声誉风险": 5,
-                            "资源投入成本": -10
-                        },
-                        "threshold": {
-                            "合规与声誉风险": 20
-                        },
-                        "probability": 0.7
-                    },
-                    {
-                        "event": "用户活跃激增",
-                        "probability_label": "高",
-                        "description": "用户对自动化功能接受度高，活跃度与转化率双升。",
-                        "impact": {
-                            "收入增长潜力": 15,
-                            "用户增长空间": 15
-                        },
-                        "threshold": {
-                            "收入增长潜力": 60
-                        },
-                        "probability": 0.7
-                    }
-                ],
-                "probability": 0.74
-            },
-            {
-                "id": "path-2",
-                "name": "上线 AI → 合规事故 → 遭受罚款",
+                "id": "P1",
+                "name": "上线AI新功能/产品 -> 技术突破获客 -> 确立领先优势",
                 "probability_label": "低",
-                "explanation": "小概率但高损失的黑天鹅事件，AI生成内容违规导致品牌危机及法律制裁。",
+                "explanation": "高成本博取非线性增长，克服技术复杂性形成壁垒",
                 "timeline": [
                     {
-                        "event": "发生合规事故",
+                        "event": "技术突破获客",
                         "probability_label": "低",
-                        "description": "AI产生严重幻觉或偏见内容，被媒体曝光或监管通报。",
+                        "description": "AI功能成功建立护城河，实现市场差异化与指数级增长",
                         "impact": {
-                            "合规与声誉风险": -40,
-                            "收入增长潜力": -30,
-                            "用户增长空间": -20
+                            "长期增长潜力": 90,
+                            "市场竞争差异化": 85
                         },
                         "threshold": {
-                            "合规与声誉风险": 80
+                            "实施复杂度与成本": 70
                         },
                         "probability": 0.25
-                    },
-                    {
-                        "event": "遭受巨额罚款",
-                        "probability_label": "极低",
-                        "description": "面临监管机构的巨额罚款及用户集体诉讼，品牌信任度崩塌。",
-                        "impact": {
-                            "合规与声誉风险": -50,
-                            "收入增长潜力": -20
-                        },
-                        "threshold": {
-                            "合规与声誉风险": 90
-                        },
-                        "probability": 0.05
                     }
                 ],
-                "probability": 0.26
+                "probability": 1
             },
             {
-                "id": "path-3",
-                "name": "优化现有 → 体验提升 → 维持地位",
+                "id": "P2",
+                "name": "上线AI新功能/产品 -> 落地失败滞销 -> 陷入亏损困境",
+                "probability_label": "高",
+                "explanation": "高投入未转化，面临技术债务与资源浪费，牺牲短期现金流",
+                "timeline": [
+                    {
+                        "event": "落地失败滞销",
+                        "probability_label": "高",
+                        "description": "AI幻觉导致体验受损或付费意愿低，错失巩固基本盘窗口",
+                        "impact": {
+                            "短期收益确定性": 10,
+                            "实施复杂度与成本": 90
+                        },
+                        "threshold": {
+                            "长期增长潜力": 30
+                        },
+                        "probability": 0.7
+                    }
+                ],
+                "probability": 1
+            },
+            {
+                "id": "P3",
+                "name": "优化现有项目 -> 效率提升留存 -> 稳健持续盈利",
                 "probability_label": "极高",
-                "explanation": "常规迭代路径，风险极低，收益确定但有限，主要起到防守作用。",
+                "explanation": "低风险迭代巩固基本盘，确保短期现金流稳定，结果可预测",
                 "timeline": [
                     {
-                        "event": "体验稳步提升",
+                        "event": "效率提升留存",
                         "probability_label": "极高",
-                        "description": "现有功能bug修复及性能优化，用户满意度小幅回升。",
+                        "description": "用户体验改善带来稳定收入增长与客户忠诚度提升",
                         "impact": {
-                            "收入增长潜力": 5,
-                            "用户增长空间": 2,
-                            "合规与声誉风险": 5,
-                            "资源投入成本": 5
+                            "短期收益确定性": 85,
+                            "实施复杂度与成本": 40
                         },
                         "threshold": {
-                            "资源投入成本": 50
-                        },
-                        "probability": 0.9
-                    },
-                    {
-                        "event": "维持市场地位",
-                        "probability_label": "极高",
-                        "description": "业务平稳运行，无显著增长也无显著衰退。",
-                        "impact": {
-                            "收入增长潜力": 2,
-                            "用户增长空间": 0
-                        },
-                        "threshold": {
-                            "用户增长空间": 50
+                            "长期增长潜力": 50
                         },
                         "probability": 0.9
                     }
                 ],
-                "probability": 0.64
+                "probability": 1
             },
             {
-                "id": "path-4",
-                "name": "优化现有 → 增长乏力 → 竞品超越",
+                "id": "P4",
+                "name": "优化现有项目 -> 瓶颈难以突破 -> 缓慢边缘化",
                 "probability_label": "中",
-                "explanation": "长期来看，缺乏创新导致竞争力下降，被采用新技术的竞品挤压市场。",
+                "explanation": "边际效应递减，现有架构限制创新，丧失战略主动权",
                 "timeline": [
                     {
-                        "event": "增长持续乏力",
+                        "event": "瓶颈难以突破",
                         "probability_label": "中",
-                        "description": "现有优化边际效应递减，无法阻止用户流失趋势。",
+                        "description": "竞争对手通过AI降维打击，市场份额被侵蚀，品牌科技感弱化",
                         "impact": {
-                            "用户增长空间": -10,
-                            "收入增长潜力": -5
+                            "市场竞争差异化": 30,
+                            "长期增长潜力": 40
                         },
                         "threshold": {
-                            "用户增长空间": 40
-                        },
-                        "probability": 0.5
-                    },
-                    {
-                        "event": "竞品超越我们",
-                        "probability_label": "中",
-                        "description": "竞品通过AI功能建立护城河，我方市场份额逐步萎缩。",
-                        "impact": {
-                            "收入增长潜力": -15,
-                            "用户增长空间": -15
-                        },
-                        "threshold": {
-                            "收入增长潜力": 40
+                            "短期收益确定性": 60
                         },
                         "probability": 0.5
                     }
                 ],
-                "probability": 0.36
+                "probability": 1
             }
         ],
-        "recommendation": {
-            "analysis": "基于修正后的模型，'上线 AI 自动化功能'虽然期望收益较高，但其方差极大，主要源于'合规与声誉风险'这一新增维度。若发生小概率的合规黑天鹅事件，其负面效用将远超收益。相比之下，'继续优化现有产品'提供了确定的底线收益和极高的安全性。对于风险厌恶型（保守）决策者，现有优化是更优解；对于风险偏好型（激进）决策者，AI功能的高上限具有吸引力。建议采取混合策略：在小范围用户群中进行灰度测试（A/B实验），以低成本验证AI的合规性及实际转化效果，从而将'低概率高损失'风险转化为'可量化的小额试错成本'，而非直接全量上线。"
-        },
         "scores": {
-            "上线 AI 自动化功能": 62.5,
-            "继续优化现有产品": 68
+            "上线AI新功能/产品": 48,
+            "优化现有项目": 66
+        },
+        "recommendation": {
+            "analysis": "原仿真均值差异无统计显著性，且忽略左尾极端风险。经概率加权修正，\"优化现有项目\"以66.8分显著优于AI选项的48.5分。鉴于AI同质化及幻觉风险，建议放弃二元对立，采取\"战略性观望\"：优先执行现有业务优化以锁定现金流，同时小成本试点AI重构流程，而非全量押注高风险新品。"
         }
     },
     "paramValues": {
-        "收入增长潜力": 50,
-        "用户增长空间": 50,
-        "合规与声誉风险": 50,
-        "资源投入成本": 50,
+        "短期收益确定性": 50,
+        "长期增长潜力": 50,
+        "实施复杂度与成本": 50,
+        "市场竞争差异化": 50,
         "风险偏好": "均衡"
     },
     "adjustedProbabilities": {
-        "path-1": 0.74,
-        "path-2": 0.26,
-        "path-3": 0.64,
-        "path-4": 0.36
+        "P1": 1,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1
     },
     "riskPreference": "均衡",
     "pipelineResult": {
         "framework": {
-            "decision_context": "在用户增长放缓的背景下，决策是否投入高成本且具技术不确定性的AI自动化功能以换取潜在的活跃度和转化率提升，还是选择低风险的现有产品优化路径。",
+            "decision_context": "在资源有限的情况下，决策者需要在引入新技术（AI）以寻求突破与优化现有成熟业务以巩固基本盘之间进行战略选择。",
             "options": [
-                "上线 AI 自动化功能",
-                "继续优化现有产品"
+                "上线AI新功能/产品",
+                "优化现有项目"
             ],
             "dimensions": [
                 {
-                    "name": "收入增长潜力",
-                    "description": "该选项对短期及中期营收转化的预期贡献程度",
-                    "qualitative_description": "AI功能具备强正向潜力但伴随不确定性；现有优化带来弱正向但确定的边际收益",
-                    "sim_spec_hint": "lognormal"
-                },
-                {
-                    "name": "用户增长空间",
-                    "description": "该选项对打破当前增长停滞、提升用户活跃度及留存的能力",
-                    "qualitative_description": "AI功能有望通过体验革新带来中正向至强正向的增长突破；现有优化仅能维持现状或带来极微弱增长",
+                    "name": "短期收益确定性",
+                    "description": "短期内产生可预测收入或效率提升的可能性",
+                    "qualitative_description": "优化现有项目具有极高的确定性，而上线AI面临较高的市场和技术不确定性",
                     "sim_spec_hint": "beta"
                 },
                 {
-                    "name": "技术风险",
-                    "description": "实施过程中导致系统不稳定、故障或延期交付的可能性及严重程度",
-                    "qualitative_description": "AI功能涉及高中等程度的技术不确定性及稳定性风险；现有优化技术风险极低",
-                    "sim_spec_hint": "bernoulli"
+                    "name": "长期增长潜力",
+                    "description": "未来3-5年内带来非线性增长或竞争壁垒的能力",
+                    "qualitative_description": "上线AI具备极强的长期爆发潜力，优化现有项目通常呈现线性或边际递减的增长",
+                    "sim_spec_hint": "lognormal"
                 },
                 {
-                    "name": "资源投入成本",
-                    "description": "所需研发人力、时间机会成本及资金支出",
-                    "qualitative_description": "AI功能需要高强度的资源锁定（2-3个月全职研发）；现有优化资源需求低且灵活",
+                    "name": "实施复杂度与成本",
+                    "description": "落地所需的技术难度、资金投入及团队磨合成本",
+                    "qualitative_description": "上线AI涉及高复杂度和高初始投入，优化现有项目成本相对可控且技术路径清晰",
                     "sim_spec_hint": "triangular"
+                },
+                {
+                    "name": "市场竞争差异化",
+                    "description": "相对于竞争对手形成独特优势的程度",
+                    "qualitative_description": "上线AI可能带来显著的差异化优势，优化现有项目难以形成明显的护城河",
+                    "sim_spec_hint": "uniform"
                 }
             ],
             "key_tradeoffs": [
                 {
-                    "dimension_a": "收入增长潜力",
-                    "dimension_b": "技术风险",
-                    "tension": "追求高回报的AI创新需承担系统不稳定的潜在代价",
-                    "qualitative_description": "以接受中等技术风险为代价，换取打破收入瓶颈的高可能性"
+                    "dimension_a": "短期收益确定性",
+                    "dimension_b": "长期增长潜力",
+                    "tension": "牺牲短期的稳定现金流以换取未来的指数级增长机会",
+                    "qualitative_description": "选择AI意味着承担短期波动风险以博取高上限，选择优化则锁定下限但限制上限"
                 },
                 {
-                    "dimension_a": "资源投入成本",
-                    "dimension_b": "用户增长空间",
-                    "tension": "高昂的研发资源占用是否能在增长放缓期获得足够的用户增量回报",
-                    "qualitative_description": "牺牲长期的资源灵活性，试图通过一次性重投入激活用户增长"
+                    "dimension_a": "实施复杂度与成本",
+                    "dimension_b": "市场竞争差异化",
+                    "tension": "高昂的试错成本与技术门槛是否能转化为可持续的竞争壁垒",
+                    "qualitative_description": "高投入的AI项目若成功可建立强壁垒，若失败则造成资源浪费；优化项目低风险但也低壁垒"
                 }
             ],
             "risk_factors": [
-                "AI模型在实际场景中表现不及预期，导致用户体验下降",
-                "系统集成引发稳定性问题，影响核心业务正常运行",
-                "研发周期超出预期，错失市场窗口或消耗过多现金流",
-                "用户对AI功能的感知价值低，无法有效转化为付费或活跃行为"
+                "AI技术落地效果不及预期或存在幻觉问题",
+                "市场对AI新功能的接受度低或付费意愿弱",
+                "现有项目因缺乏维护导致用户流失或性能瓶颈",
+                "竞争对手快速复制AI功能导致先发优势丧失",
+                "团队缺乏AI相关技术储备导致开发周期严重延误"
             ]
         },
         "devil-framework": {
@@ -621,38 +546,38 @@
                 {
                     "type": "framing_bias",
                     "severity": "high",
-                    "description": "框架错误地将'技术风险'局限于'系统不稳定或延期'，完全忽略了AI特有的'幻觉率'、'不可解释性'及'合规/数据隐私'等致命非技术性风险，导致风险评估维度严重缺失。"
-                },
-                {
-                    "type": "option_exhaustion",
-                    "severity": "high",
-                    "description": "选项仅包含'全量上线AI'与'纯现有优化'的二元对立，忽略了'灰度测试/A/B实验'、'引入第三方成熟API而非自研'或'针对高价值小用户群试点'等能够显著降低不确定性且保留灵活性的中间路径。"
+                    "description": "框架将'上线AI新功能/产品'与'优化现有项目'构建为互斥的二元对立，忽略了'利用AI技术重构现有业务流程'这一能同时提升短期效率（确定性）和长期竞争力的混合路径。"
                 },
                 {
                     "type": "dimension_validity",
                     "severity": "medium",
-                    "description": "'资源投入成本'维度仅量化了研发人力和时间，却未将'模型持续推理成本'、'数据清洗与维护的长期运营开销'以及'失败后的沉没成本'纳入考量，导致对AI选项的真实TCO（总拥有成本）严重低估。"
+                    "description": "维度'市场竞争差异化'中假设'优化现有项目难以形成明显的护城河'存在严重逻辑漏洞，忽视了在成熟市场中通过极致体验、网络效应或转换成本建立的深厚壁垒往往比脆弱的技术先发优势更具防御性。"
+                },
+                {
+                    "type": "option_exhaustion",
+                    "severity": "high",
+                    "description": "完全缺失'不作为'或'观望策略'（如等待技术成熟度曲线跨过泡沫期再介入），在'资源有限'且AI存在'幻觉问题'的高风险背景下，延迟决策本身是一个极具价值的独立选项。"
                 }
             ],
             "missing_options": [
-                "采用MVP策略进行小规模A/B测试或灰度发布，以最小成本验证AI对用户活跃度的实际影响",
-                "集成第三方成熟的大模型API服务而非自研底层模型，以转移技术不确定性并降低初期研发投入"
+                "AI赋能现有业务（内部提效/降本而非对外发布新产品）",
+                "战略性观望（小范围试点验证而非全面上线，或等待竞品试错）"
             ],
-            "summary": "该框架犯了典型的'二元陷阱'错误，不仅遗漏了关键的合规与运营成本维度，更通过排除中间验证路径，迫使决策者在'盲目豪赌'与'保守停滞'之间做选择，缺乏风险可控的渐进式创新选项。"
+            "summary": "该框架陷入了典型的'创新者窘境'叙事陷阱，错误地将技术引入与业务优化割裂，且低估了成熟业务的防御价值和等待期权的重要性。"
         },
         "devil-model": {
             "requires_refactor": true,
             "severity": "CRITICAL",
             "directives": [
                 {
-                    "target": "变量维度映射与权重分配",
-                    "action": "立即修正模型结构，将框架定义中的四个独立维度（收入增长潜力、用户增长空间、技术风险、资源投入成本）与计算层变量严格对齐，消除重复加权或遗漏。",
-                    "reason": "严重的数据结构不一致：框架定义了4个关键维度，但计算层仅使用了4个变量且命名混淆。'技术风险控制'(0.3)与'资源效率'(0.2)在框架中对应'技术风险'和'资源投入成本'，但'用户活跃提升'(0.15)似乎对应'用户增长空间'，而'收入增长潜力'(0.35)直接复用。更严重的是，框架中的key_tradeoffs明确指出了'资源投入成本'与'用户增长空间'的权衡，但当前变量体系中'资源效率'和'用户活跃提升'的权重之和仅为0.35，未能准确反映高成本与高增长之间的核心张力，且存在维度含义模糊导致的潜在重复计算风险。"
+                    "target": "上线AI新功能/产品.trade_offs[实施复杂度与成本]",
+                    "action": "修正 delta 值为负数（建议 -10 至 -20）并补充 trade_off 条目",
+                    "reason": "严重逻辑缺失与数据矛盾。框架定义明确指出'上线AI涉及高复杂度和高初始投入'，但该选项在此维度的 delta 为 0，导致模型完全忽略了 AI 项目最大的成本风险。同时，'优化现有项目'缺少此维度权衡，导致两个选项在总权重 0.2 的关键维度上不可比，基准分计算失真。"
                 },
                 {
-                    "target": "trade_offs.delta 数值与定性标签的一致性",
-                    "action": "重新校准'上线 AI 自动化功能'在'技术风险控制'维度的 delta 值，或修改 delta_label 以匹配数值，确保逻辑自洽。",
-                    "reason": "逻辑矛盾：'上线 AI 自动化功能'在'技术风险控制'维度的 delta 为 -15，label 为'强负向'，这符合AI高风险的特征。然而，'继续优化现有产品'在同一维度的 delta 为 +15，label 为'强正向'。问题在于基准分（Base Score）的计算逻辑不明。如果基准分是中性起点，那么AI选项因高风险扣分是合理的。但检查'资源效率'：AI选项 delta -10（中负向），现有产品 delta +10（中正向）。若简单累加，AI选项总分应为 Base + 15 - 15 - 10 + 10 = Base。现有产品为 Base + 5 + 15 + 10 + 5 = Base + 35。这意味着现有产品在模型中被系统性过度优待，除非基准分已经包含了巨大的风险溢价。当前 AI 选项基准分72高于现有产品的65，这与后续 trade_offs 中 AI 在风险和资源上的巨大劣势（-25分总和 vs +25分总和）形成剧烈冲突，导致最终得分逻辑无法闭环。"
+                    "target": "上线AI新功能/产品.trade_offs[市场竞争差异化]",
+                    "action": "修正 delta 值为正数（建议 +10 至 +15）以匹配定性描述",
+                    "reason": "定性标签与数值严重不一致。框架定义中明确说明'上线AI可能带来显著的差异化优势'，但模型中该维度 delta 为 0。若 AI 不能带来差异化，则其 0.35 的'长期增长潜力'权重缺乏支撑，存在重复加权或逻辑断裂风险。"
                 }
             ]
         },
@@ -660,82 +585,68 @@
             "stage": "devil-simulate",
             "questionable_assumptions": [
                 {
-                    "variable": "收入增长潜力",
-                    "issue": "分布参数严重失真。sim_spec 设定为 lognormal(mean=50, sd=20)，但在蒙特卡洛结果中，该变量主导的 '上线 AI 自动化功能' 选项最终 sigma 仅为 2。对数正态分布具有右偏长尾特性，sd=20 意味着极大的波动性，不可能在加权聚合后收敛至如此窄的区间 (P10=73.5, P90=78.7)。这表明模型内部可能存在错误的截断处理或权重计算逻辑完全忽略了输入变量的方差传播。",
+                    "variable": "长期增长潜力",
+                    "issue": "分布参数严重失真。sim_spec 设定为 lognormal(mean=4, sd=0.8)，这意味着该变量的期望值约为 exp(4 + 0.8^2/2) ≈ 75，且右尾极长。然而仿真结果中选项均值仅为 ~49，这表明模型内部存在未披露的截断、归一化或非线性惩罚机制，导致输入分布与输出结果完全脱节，均值依据不明。",
                     "severity": "high"
                 },
                 {
-                    "variable": "用户活跃提升",
-                    "issue": "分布类型选择错误且参数未做边界约束。sim_spec 使用 normal(mean=45, sd=15)，这意味着约有 0.13% 的概率出现负值（活跃用户减少），以及约 0.13% 的概率超过 100（超出合理百分比范围）。在商业仿真中，活跃度提升通常是有下限（0%）且往往呈现偏态分布（Beta 或 Triangular），使用无界正态分布低估了‘无效甚至负面’影响的尾部风险。",
+                    "variable": "上线AI新功能/产品 (整体评分)",
+                    "issue": "方差被人为压缩至接近零 (sigma=0.1, P10-P90 区间仅 0.2)。在包含 '市场竞争差异化' (uniform, 范围60) 和 '实施复杂度' (triangular, 范围60) 等高波动输入的情况下，输出端出现如此确定的结果是统计上的不可能事件，暗示蒙特卡洛仿真可能未正确传播不确定性，或权重计算逻辑存在硬编码错误。",
+                    "severity": "high"
+                },
+                {
+                    "variable": "短期收益确定性",
+                    "issue": "Beta(8, 2) 分布假设过于乐观且缺乏弹性。该分布均值约为 0.8，且高度左偏（集中在高分段），完全忽略了 AI 项目在早期阶段常见的 '演示陷阱'（Demo 效果好但落地难）导致的收益断崖式下跌风险，未覆盖 P10 以下的极端失败场景。",
                     "severity": "medium"
-                },
-                {
-                    "variable": "技术风险控制",
-                    "issue": "Beta 分布参数 alpha=2, beta=5 暗示成功率极低（均值约 0.286，映射到 0-100 分制约为 28.6 分）。然而，框架审查指出 AI 选项在此维度 delta 为 -15（强负向），若基准分不高，此低均值应导致总分大幅崩盘。但仿真结果显示 AI 选项均分高达 75.9，这与 Beta(2,5) 所代表的‘高风险/低控制力’特征在数值贡献上存在逻辑断裂，怀疑该变量在聚合时被错误地反向计分或权重被非法篡改。",
-                    "severity": "high"
                 }
             ],
             "tail_risks": [
-                "AI 幻觉导致的合规诉讼成本未被量化：当前模型仅将技术风险视为‘控制力’评分，未包含离散型的黑天鹅事件（如数据泄露罚款、品牌声誉毁灭性打击），这些事件发生概率低但影响值为负无穷，无法通过连续的 Beta 分布捕捉。",
-                "资源效率的三角分布低估了‘死亡螺旋’风险：Triangular(min=30, mode=60, max=90) 假设最坏情况仅是效率低至 30，但未考虑 AI 项目常见的‘无限调试陷阱’，即资源消耗可能突破 max 上限，导致项目因资金链断裂而终止（得分为 0），此截断风险未被覆盖。"
+                "AI 幻觉导致合规性灾难，使 '短期收益确定性' 瞬间归零并引发负向连锁反应，当前 Beta 分布无法模拟此类二元崩溃事件。",
+                "技术迭代速度超过实施周期，导致 '长期增长潜力' 在项目实施完成前已过时，Lognormal 分布的厚尾未能涵盖 '价值归零' 的左侧极端风险。",
+                "竞争对手开源类似模型，导致 '市场竞争差异化' 从 Uniform 分布的高位直接坍缩至低位，当前均匀分布假设低估了市场格局突变的冲击。"
             ],
-            "summary": "仿真结果呈现出人为的‘虚假确定性’，输入变量的高方差与输出结果的极低 sigma (2.0) 存在数学上的不可能性，表明模型底层逻辑存在严重的方差吞噬或硬编码偏差，完全掩盖了 AI 项目的真实尾部崩溃风险。"
+            "summary": "仿真结果呈现出虚假的确定性（sigma≈0），输入分布的高波动性与输出结果的极低方差存在根本性逻辑矛盾，模型完全失效。"
         },
         "devil-nexus": {
             "stage": "devil-nexus",
             "dependencies": [
                 {
-                    "premise": "仿真模型中'收入增长潜力'的高方差（sd=20）被错误地压缩，导致AI选项输出结果呈现人为的低波动性（sigma=2），掩盖了真实的尾部风险。",
-                    "risk_if_false": "若修正方差传播逻辑，AI选项的置信区间将大幅拓宽，P10分位数可能跌至现有产品之下，导致'AI是最佳选择'的结论因风险调整后收益为负而翻转。",
+                    "premise": "仿真模型中'上线AI新功能/产品'的评分方差被错误压缩至接近零（sigma=0.1），从而在统计上人为消除了高波动输入带来的不确定性风险。",
+                    "risk_if_false": "若修正仿真逻辑以正确传播'市场竞争差异化'和'实施复杂度'的高波动性，AI选项的置信区间将大幅拓宽，其均值49.6与优化选项48.8之间的微弱优势（仅0.8分）将完全被噪声覆盖，导致排名失去统计显著性。",
                     "severity": "high"
                 },
                 {
-                    "premise": "决策框架默认'技术风险'仅体现为连续的性能评分偏差，忽略了AI特有的离散型黑天鹅事件（如幻觉导致的合规诉讼或品牌毁灭）。",
-                    "risk_if_false": "一旦引入小概率高损失的离散风险因子，AI选项的期望效用将因巨额潜在罚款或声誉损失而急剧下降，直接推翻其排名第一的地位。",
+                    "premise": "模型假设'上线AI'能带来显著的'市场竞争差异化'（定性描述），但在量化时未给予正向Delta，且忽略了'优化现有项目'通过极致体验建立护城河的可能性。",
+                    "risk_if_false": "若AI技术迅速 commoditize（商品化/同质化）或竞争对手快速跟进，'差异化'收益归零，同时叠加未被正确计量的'高实施成本'（Delta应为负），AI选项的综合得分将急剧下降，直接跌破'优化现有项目'的得分线。",
                     "severity": "high"
                 },
                 {
-                    "premise": "模型权重分配中，'资源效率'与'用户活跃提升'的加权总和未能准确反映框架定义的'高成本与高增长核心张力'，且存在基准分与Delta值逻辑冲突。",
-                    "risk_if_false": "若重新校准权重以消除维度混淆并修正基准分逻辑，现有产品因稳定性获得的加分可能被低估，而AI的成本劣势被高估，导致排名互换。",
+                    "premise": "决策框架排除了'战略性观望'或'AI赋能内部提效'等混合路径，强制在'高风险新产品'与'保守优化'间二选一。",
+                    "risk_if_false": "若引入'小范围试点'或'内部流程重构'选项，这些方案可能在保留'长期增长潜力'期权的同时，大幅降低'短期收益确定性'的风险暴露，从而在风险调整后收益（Risk-Adjusted Return）上超越当前的排名第一方案。",
                     "severity": "medium"
                 }
             ],
             "sensitivity": [
-                "收入增长潜力的方差参数(sd)",
-                "技术风险维度的离散尾部损失量化",
-                "资源投入成本的长期运营开销(TCO)完整性"
+                "实施复杂度与成本 (Trade-off Delta)",
+                "长期增长潜力 (分布参数 mean/sd)",
+                "短期收益确定性 (Beta分布尾部风险)"
             ],
             "failure_modes": [
-                "当修正蒙特卡洛仿真中的方差吞噬错误，并引入AI幻觉导致的合规诉讼等离散黑天鹅成本时，AI选项的风险调整后预期收益低于现有产品，结论完全失效。",
-                "当采用框架审查中建议的'MVP灰度测试'或'第三方API集成'等中间路径作为新选项加入比较时，原二元对立下的'全量AI上线'因风险过高且灵活性差而不再是最优解。"
+                "当'实施复杂度'的真实成本惩罚被正确计入（Delta修正为-10至-20），且'市场竞争差异化'因技术同质化而未能实现预期溢价时，'上线AI新功能/产品'的净现值将转为负向拖累，导致其排名跌至最后。",
+                "当发生'AI幻觉导致的合规灾难'或'技术迭代过时'等黑天鹅事件时，当前基于Beta和Lognormal分布的仿真完全失效，'短期收益确定性'瞬间归零，使得依赖高均值预期的AI方案彻底崩盘，而'优化现有项目'因业务连续性保持稳健。"
             ],
-            "winner_vulnerability": "排名第一的AI方案建立在数学上不可能的高均值低方差仿真结果之上，且完全未量化灾难性合规风险的期望损失。",
-            "loser_defense": "排名最后的现有产品方案虽增长有限，但其确定的正现金流和零合规尾部风险在风险厌恶视角下具有更高的确定性溢价。",
-            "summary": "结论严重依赖一个存在方差计算错误且遗漏关键离散风险的仿真模型，一旦修正数学逻辑并补全合规成本，AI方案的优越性即刻消失。"
+            "winner_vulnerability": "排名第一的AI方案建立在统计谬误（虚假低方差）和被低估的实施成本之上，其0.8分的领先优势在真实波动面前毫无防御力。",
+            "loser_defense": "排名最后的'优化现有项目'虽缺乏爆发力，但其高确定性和被低估的护城河效应提供了极高的安全边际，是应对市场不确定性的最佳对冲。",
+            "summary": "结论严重依赖失效的仿真方差假设和缺失的成本权衡，一旦修正模型逻辑偏差并纳入被忽略的混合策略，'AI是最好的'这一结论将立即反转或变得统计上不显著。"
         },
         "build-model": {
             "options": [
-                "上线 AI 自动化功能",
-                "继续优化现有产品"
+                "上线AI新功能/产品",
+                "优化现有项目"
             ],
             "variables": [
                 {
-                    "name": "收入增长潜力",
-                    "type": "slider",
-                    "range": [
-                        0,
-                        100
-                    ],
-                    "sim_spec": {
-                        "type": "lognormal",
-                        "params": {
-                            "mean": 50,
-                            "sd": 30
-                        }
-                    }
-                },
-                {
-                    "name": "用户增长空间",
+                    "name": "短期收益确定性",
                     "type": "slider",
                     "range": [
                         0,
@@ -744,36 +655,28 @@
                     "sim_spec": {
                         "type": "beta",
                         "params": {
-                            "alpha": 2,
-                            "beta": 5
+                            "alpha": 8,
+                            "beta": 2
                         }
                     }
                 },
                 {
-                    "name": "合规与声誉风险",
+                    "name": "长期增长潜力",
                     "type": "slider",
                     "range": [
                         0,
                         100
                     ],
                     "sim_spec": {
-                        "type": "categorical",
+                        "type": "lognormal",
                         "params": {
-                            "values": [
-                                0,
-                                20,
-                                80
-                            ],
-                            "probabilities": [
-                                0.6,
-                                0.3,
-                                0.1
-                            ]
+                            "mean": 4,
+                            "sd": 0.8
                         }
                     }
                 },
                 {
-                    "name": "资源投入成本",
+                    "name": "实施复杂度与成本",
                     "type": "slider",
                     "range": [
                         0,
@@ -782,9 +685,24 @@
                     "sim_spec": {
                         "type": "triangular",
                         "params": {
-                            "min": 40,
+                            "min": 30,
                             "mode": 60,
                             "max": 90
+                        }
+                    }
+                },
+                {
+                    "name": "市场竞争差异化",
+                    "type": "slider",
+                    "range": [
+                        0,
+                        100
+                    ],
+                    "sim_spec": {
+                        "type": "uniform",
+                        "params": {
+                            "min": 20,
+                            "max": 80
                         }
                     }
                 },
@@ -814,50 +732,114 @@
                 }
             ],
             "weights": {
-                "收入增长潜力": 0.35,
-                "用户增长空间": 0.25,
-                "合规与声誉风险": 0.25,
-                "资源投入成本": 0.15
+                "短期收益确定性": 0.35,
+                "长期增长潜力": 0.3,
+                "实施复杂度与成本": 0.2,
+                "市场竞争差异化": 0.15
             },
             "treeData": {
-                "name": "AI决策评估",
+                "name": "战略路径抉择",
                 "step": 0,
                 "value": 100,
                 "children": [
                     {
-                        "name": "上线 AI 自动化功能",
+                        "name": "上线AI新功能/产品",
                         "step": 0,
-                        "value": 65,
+                        "value": 50,
+                        "children": [
+                            {
+                                "name": "技术突破获客",
+                                "step": 1,
+                                "eventType": "positive",
+                                "value": 85,
+                                "children": [
+                                    {
+                                        "name": "确立领先优势",
+                                        "step": 2,
+                                        "eventType": "positive",
+                                        "value": 90,
+                                        "probability_label": "低",
+                                        "_depth": 2,
+                                        "_index": 0
+                                    }
+                                ],
+                                "logic_payload": {
+                                    "key_impact": "AI功能成功建立护城河，实现市场差异化与指数级增长",
+                                    "risk_level": "中",
+                                    "primary_reason": "克服技术复杂性后形成竞争壁垒，但需警惕快速同质化",
+                                    "opportunity_cost": "高昂的初始研发投入与团队磨合时间",
+                                    "trade_offs": [
+                                        {
+                                            "dimension": "市场竞争差异化",
+                                            "delta_label": "强正向",
+                                            "delta": 15
+                                        }
+                                    ]
+                                },
+                                "_depth": 1,
+                                "_index": 0
+                            },
+                            {
+                                "name": "落地失败滞销",
+                                "step": 1,
+                                "eventType": "negative",
+                                "value": 20,
+                                "children": [
+                                    {
+                                        "name": "陷入亏损困境",
+                                        "step": 2,
+                                        "eventType": "negative",
+                                        "value": 15,
+                                        "probability_label": "高",
+                                        "_depth": 2,
+                                        "_index": 0
+                                    }
+                                ],
+                                "logic_payload": {
+                                    "key_impact": "高投入未能转化为有效产出，面临技术债务与资源浪费",
+                                    "risk_level": "高",
+                                    "primary_reason": "AI幻觉问题导致体验受损，或市场付费意愿远低于预期",
+                                    "opportunity_cost": "错失优化现有业务以巩固基本盘的最佳窗口期",
+                                    "trade_offs": [
+                                        {
+                                            "dimension": "实施复杂度与成本",
+                                            "delta_label": "强负向",
+                                            "delta": -15
+                                        }
+                                    ]
+                                },
+                                "_depth": 1,
+                                "_index": 1
+                            }
+                        ],
                         "logic_payload": {
-                            "key_impact": "高收益伴随高离散风险",
+                            "key_impact": "以高成本和高不确定性博取非线性增长与差异化壁垒",
                             "risk_level": "高",
-                            "primary_reason": "通过技术革新打破增长瓶颈，但面临幻觉及合规黑天鹅风险",
+                            "primary_reason": "技术落地存在幻觉风险且市场接受度未验证，置信区间极宽",
+                            "opportunity_cost": "牺牲短期稳定现金流及现有业务维护资源",
                             "trade_offs": [
                                 {
-                                    "dimension": "收入增长潜力",
-                                    "delta_label": "强正向",
-                                    "delta": 15
-                                },
-                                {
-                                    "dimension": "合规与声誉风险",
+                                    "dimension": "短期收益确定性",
                                     "delta_label": "强负向",
                                     "delta": -15
                                 },
                                 {
-                                    "dimension": "资源投入成本",
-                                    "delta_label": "中负向",
-                                    "delta": -10
+                                    "dimension": "长期增长潜力",
+                                    "delta_label": "强正向",
+                                    "delta": 15
                                 },
                                 {
-                                    "dimension": "用户增长空间",
-                                    "delta_label": "中正向",
-                                    "delta": 10
+                                    "dimension": "市场竞争差异化",
+                                    "delta": 0
+                                },
+                                {
+                                    "dimension": "实施复杂度与成本",
+                                    "delta": 0
                                 }
                             ],
-                            "opportunity_cost": "占用核心研发资源2-3个月，若失败则错失现有产品迭代窗口",
                             "risk_adjustment": {
                                 "保守": {
-                                    "offset": -20
+                                    "offset": -25
                                 },
                                 "均衡": {
                                     "offset": 0
@@ -867,117 +849,105 @@
                                 }
                             }
                         },
+                        "_pathRef": [
+                            "P1",
+                            "P2"
+                        ]
+                    },
+                    {
+                        "name": "优化现有项目",
+                        "step": 0,
+                        "value": 50,
                         "children": [
                             {
-                                "name": "模型表现优异",
+                                "name": "效率提升留存",
                                 "step": 1,
                                 "eventType": "positive",
-                                "value": 85,
-                                "logic_payload": {
-                                    "key_impact": "转化率显著提升",
-                                    "risk_level": "中",
-                                    "primary_reason": "AI准确率高，用户感知价值强，无重大合规事故",
-                                    "trade_offs": [
-                                        {
-                                            "dimension": "收入增长潜力",
-                                            "delta_label": "强正向",
-                                            "delta": 15
-                                        },
-                                        {
-                                            "dimension": "合规与声誉风险",
-                                            "delta_label": "弱正向",
-                                            "delta": 5
-                                        }
-                                    ],
-                                    "opportunity_cost": "无额外机会成本，实现预期收益"
-                                },
+                                "value": 75,
                                 "children": [
                                     {
-                                        "name": "用户活跃激增",
+                                        "name": "稳健持续盈利",
                                         "step": 2,
                                         "eventType": "positive",
-                                        "value": 90,
-                                        "probability_label": "高",
+                                        "value": 80,
+                                        "probability_label": "极高",
                                         "_depth": 2,
                                         "_index": 0
                                     }
                                 ],
+                                "logic_payload": {
+                                    "key_impact": "用户体验改善带来稳定的收入增长与客户忠诚度提升",
+                                    "risk_level": "低",
+                                    "primary_reason": "基于成熟业务的边际改进，结果具有高度可预测性",
+                                    "opportunity_cost": "无法在新兴AI赛道占据先发位置，品牌科技感弱化",
+                                    "trade_offs": [
+                                        {
+                                            "dimension": "短期收益确定性",
+                                            "delta_label": "中正向",
+                                            "delta": 10
+                                        }
+                                    ]
+                                },
                                 "_depth": 1,
                                 "_index": 0
                             },
                             {
-                                "name": "发生合规事故",
+                                "name": "瓶颈难以突破",
                                 "step": 1,
                                 "eventType": "negative",
-                                "value": 10,
-                                "logic_payload": {
-                                    "key_impact": "品牌声誉受损及罚款",
-                                    "risk_level": "高",
-                                    "primary_reason": "AI产生幻觉导致数据泄露或歧视性输出，引发监管介入",
-                                    "trade_offs": [
-                                        {
-                                            "dimension": "合规与声誉风险",
-                                            "delta_label": "强负向",
-                                            "delta": -15
-                                        },
-                                        {
-                                            "dimension": "收入增长潜力",
-                                            "delta_label": "强负向",
-                                            "delta": -15
-                                        }
-                                    ],
-                                    "opportunity_cost": "需投入大量资源进行危机公关及系统回滚，业务停滞"
-                                },
+                                "value": 45,
                                 "children": [
                                     {
-                                        "name": "遭受巨额罚款",
+                                        "name": "缓慢边缘化",
                                         "step": 2,
                                         "eventType": "negative",
-                                        "value": 5,
-                                        "probability_label": "低",
+                                        "value": 40,
+                                        "probability_label": "中",
                                         "_depth": 2,
                                         "_index": 0
                                     }
                                 ],
+                                "logic_payload": {
+                                    "key_impact": "边际效应递减导致投入产出比下降，市场份额被侵蚀",
+                                    "risk_level": "中",
+                                    "primary_reason": "现有架构限制创新空间，竞争对手可能通过AI实现降维打击",
+                                    "opportunity_cost": "在行业技术范式转移期间丧失战略主动权",
+                                    "trade_offs": [
+                                        {
+                                            "dimension": "市场竞争差异化",
+                                            "delta_label": "弱负向",
+                                            "delta": -5
+                                        }
+                                    ]
+                                },
                                 "_depth": 1,
                                 "_index": 1
                             }
-                        ]
-                    },
-                    {
-                        "name": "继续优化现有产品",
-                        "step": 0,
-                        "value": 70,
+                        ],
                         "logic_payload": {
-                            "key_impact": "稳健边际收益",
+                            "key_impact": "通过低风险迭代巩固基本盘，确保短期现金流稳定",
                             "risk_level": "低",
-                            "primary_reason": "规避AI不可控风险，确保现金流稳定，但增长天花板明显",
+                            "primary_reason": "技术路径清晰且成本可控，但缺乏突破性增长引擎",
+                            "opportunity_cost": "放弃利用AI技术重构业务以获取长期爆发潜力的机会",
                             "trade_offs": [
                                 {
-                                    "dimension": "合规与声誉风险",
+                                    "dimension": "短期收益确定性",
                                     "delta_label": "强正向",
                                     "delta": 15
                                 },
                                 {
-                                    "dimension": "资源投入成本",
-                                    "delta_label": "弱正向",
-                                    "delta": 5
+                                    "dimension": "长期增长潜力",
+                                    "delta_label": "弱负向",
+                                    "delta": -5
                                 },
                                 {
-                                    "dimension": "收入增长潜力",
-                                    "delta_label": "弱正向",
-                                    "delta": 5
-                                },
-                                {
-                                    "dimension": "用户增长空间",
-                                    "delta_label": "无影响",
+                                    "dimension": "市场竞争差异化",
                                     "delta": 0
                                 }
                             ],
-                            "opportunity_cost": "放弃通过AI技术实现弯道超车的潜在高回报机会",
                             "risk_adjustment": {
                                 "保守": {
-                                    "offset": 15
+                                    "offset": 5
                                 },
                                 "均衡": {
                                     "offset": 0
@@ -987,319 +957,190 @@
                                 }
                             }
                         },
-                        "children": [
-                            {
-                                "name": "体验稳步提升",
-                                "step": 1,
-                                "eventType": "positive",
-                                "value": 75,
-                                "logic_payload": {
-                                    "key_impact": "留存率微幅改善",
-                                    "risk_level": "低",
-                                    "primary_reason": "已知技术栈优化，效果可预测，无突发故障",
-                                    "trade_offs": [
-                                        {
-                                            "dimension": "收入增长潜力",
-                                            "delta_label": "弱正向",
-                                            "delta": 5
-                                        },
-                                        {
-                                            "dimension": "用户增长空间",
-                                            "delta_label": "弱正向",
-                                            "delta": 5
-                                        }
-                                    ],
-                                    "opportunity_cost": "无显著机会成本，资源利用效率高"
-                                },
-                                "children": [
-                                    {
-                                        "name": "维持市场地位",
-                                        "step": 2,
-                                        "eventType": "neutral",
-                                        "value": 70,
-                                        "probability_label": "极高",
-                                        "_depth": 2,
-                                        "_index": 0
-                                    }
-                                ],
-                                "_depth": 1,
-                                "_index": 0
-                            },
-                            {
-                                "name": "增长持续乏力",
-                                "step": 1,
-                                "eventType": "negative",
-                                "value": 50,
-                                "logic_payload": {
-                                    "key_impact": "市场份额缓慢流失",
-                                    "risk_level": "中",
-                                    "primary_reason": "竞品采用AI技术形成代差，现有优化无法吸引新用户",
-                                    "trade_offs": [
-                                        {
-                                            "dimension": "用户增长空间",
-                                            "delta_label": "中负向",
-                                            "delta": -10
-                                        },
-                                        {
-                                            "dimension": "收入增长潜力",
-                                            "delta_label": "弱负向",
-                                            "delta": -5
-                                        }
-                                    ],
-                                    "opportunity_cost": "长期来看，品牌老化导致获客成本急剧上升"
-                                },
-                                "children": [
-                                    {
-                                        "name": "竞品超越我们",
-                                        "step": 2,
-                                        "eventType": "negative",
-                                        "value": 40,
-                                        "probability_label": "中",
-                                        "_depth": 2,
-                                        "_index": 0
-                                    }
-                                ],
-                                "_depth": 1,
-                                "_index": 1
-                            }
+                        "_pathRef": [
+                            "P3",
+                            "P4"
                         ]
                     }
                 ]
             },
             "paths": [
                 {
-                    "id": "path-1",
-                    "name": "上线 AI → 模型优异 → 活跃激增",
-                    "probability_label": "高",
-                    "explanation": "在技术可控且无重大合规漏洞的前提下，AI功能成功提升用户体验并转化为收入。",
-                    "timeline": [
-                        {
-                            "event": "模型表现优异",
-                            "probability_label": "高",
-                            "description": "AI功能上线后运行稳定，幻觉率在可接受范围，未触发合规红线。",
-                            "impact": {
-                                "收入增长潜力": 25,
-                                "用户增长空间": 20,
-                                "合规与声誉风险": 5,
-                                "资源投入成本": -10
-                            },
-                            "threshold": {
-                                "合规与声誉风险": 20
-                            },
-                            "probability": 0.7
-                        },
-                        {
-                            "event": "用户活跃激增",
-                            "probability_label": "高",
-                            "description": "用户对自动化功能接受度高，活跃度与转化率双升。",
-                            "impact": {
-                                "收入增长潜力": 15,
-                                "用户增长空间": 15
-                            },
-                            "threshold": {
-                                "收入增长潜力": 60
-                            },
-                            "probability": 0.7
-                        }
-                    ],
-                    "probability": 0.74
-                },
-                {
-                    "id": "path-2",
-                    "name": "上线 AI → 合规事故 → 遭受罚款",
+                    "id": "P1",
+                    "name": "上线AI新功能/产品 -> 技术突破获客 -> 确立领先优势",
                     "probability_label": "低",
-                    "explanation": "小概率但高损失的黑天鹅事件，AI生成内容违规导致品牌危机及法律制裁。",
+                    "explanation": "高成本博取非线性增长，克服技术复杂性形成壁垒",
                     "timeline": [
                         {
-                            "event": "发生合规事故",
+                            "event": "技术突破获客",
                             "probability_label": "低",
-                            "description": "AI产生严重幻觉或偏见内容，被媒体曝光或监管通报。",
+                            "description": "AI功能成功建立护城河，实现市场差异化与指数级增长",
                             "impact": {
-                                "合规与声誉风险": -40,
-                                "收入增长潜力": -30,
-                                "用户增长空间": -20
+                                "长期增长潜力": 90,
+                                "市场竞争差异化": 85
                             },
                             "threshold": {
-                                "合规与声誉风险": 80
+                                "实施复杂度与成本": 70
                             },
                             "probability": 0.25
-                        },
-                        {
-                            "event": "遭受巨额罚款",
-                            "probability_label": "极低",
-                            "description": "面临监管机构的巨额罚款及用户集体诉讼，品牌信任度崩塌。",
-                            "impact": {
-                                "合规与声誉风险": -50,
-                                "收入增长潜力": -20
-                            },
-                            "threshold": {
-                                "合规与声誉风险": 90
-                            },
-                            "probability": 0.05
                         }
                     ],
-                    "probability": 0.26
+                    "probability": 1
                 },
                 {
-                    "id": "path-3",
-                    "name": "优化现有 → 体验提升 → 维持地位",
+                    "id": "P2",
+                    "name": "上线AI新功能/产品 -> 落地失败滞销 -> 陷入亏损困境",
+                    "probability_label": "高",
+                    "explanation": "高投入未转化，面临技术债务与资源浪费，牺牲短期现金流",
+                    "timeline": [
+                        {
+                            "event": "落地失败滞销",
+                            "probability_label": "高",
+                            "description": "AI幻觉导致体验受损或付费意愿低，错失巩固基本盘窗口",
+                            "impact": {
+                                "短期收益确定性": 10,
+                                "实施复杂度与成本": 90
+                            },
+                            "threshold": {
+                                "长期增长潜力": 30
+                            },
+                            "probability": 0.7
+                        }
+                    ],
+                    "probability": 1
+                },
+                {
+                    "id": "P3",
+                    "name": "优化现有项目 -> 效率提升留存 -> 稳健持续盈利",
                     "probability_label": "极高",
-                    "explanation": "常规迭代路径，风险极低，收益确定但有限，主要起到防守作用。",
+                    "explanation": "低风险迭代巩固基本盘，确保短期现金流稳定，结果可预测",
                     "timeline": [
                         {
-                            "event": "体验稳步提升",
+                            "event": "效率提升留存",
                             "probability_label": "极高",
-                            "description": "现有功能bug修复及性能优化，用户满意度小幅回升。",
+                            "description": "用户体验改善带来稳定收入增长与客户忠诚度提升",
                             "impact": {
-                                "收入增长潜力": 5,
-                                "用户增长空间": 2,
-                                "合规与声誉风险": 5,
-                                "资源投入成本": 5
+                                "短期收益确定性": 85,
+                                "实施复杂度与成本": 40
                             },
                             "threshold": {
-                                "资源投入成本": 50
-                            },
-                            "probability": 0.9
-                        },
-                        {
-                            "event": "维持市场地位",
-                            "probability_label": "极高",
-                            "description": "业务平稳运行，无显著增长也无显著衰退。",
-                            "impact": {
-                                "收入增长潜力": 2,
-                                "用户增长空间": 0
-                            },
-                            "threshold": {
-                                "用户增长空间": 50
+                                "长期增长潜力": 50
                             },
                             "probability": 0.9
                         }
                     ],
-                    "probability": 0.64
+                    "probability": 1
                 },
                 {
-                    "id": "path-4",
-                    "name": "优化现有 → 增长乏力 → 竞品超越",
+                    "id": "P4",
+                    "name": "优化现有项目 -> 瓶颈难以突破 -> 缓慢边缘化",
                     "probability_label": "中",
-                    "explanation": "长期来看，缺乏创新导致竞争力下降，被采用新技术的竞品挤压市场。",
+                    "explanation": "边际效应递减，现有架构限制创新，丧失战略主动权",
                     "timeline": [
                         {
-                            "event": "增长持续乏力",
+                            "event": "瓶颈难以突破",
                             "probability_label": "中",
-                            "description": "现有优化边际效应递减，无法阻止用户流失趋势。",
+                            "description": "竞争对手通过AI降维打击，市场份额被侵蚀，品牌科技感弱化",
                             "impact": {
-                                "用户增长空间": -10,
-                                "收入增长潜力": -5
+                                "市场竞争差异化": 30,
+                                "长期增长潜力": 40
                             },
                             "threshold": {
-                                "用户增长空间": 40
-                            },
-                            "probability": 0.5
-                        },
-                        {
-                            "event": "竞品超越我们",
-                            "probability_label": "中",
-                            "description": "竞品通过AI功能建立护城河，我方市场份额逐步萎缩。",
-                            "impact": {
-                                "收入增长潜力": -15,
-                                "用户增长空间": -15
-                            },
-                            "threshold": {
-                                "收入增长潜力": 40
+                                "短期收益确定性": 60
                             },
                             "probability": 0.5
                         }
                     ],
-                    "probability": 0.36
+                    "probability": 1
                 }
             ],
-            "recommendation": {
-                "analysis": "基于修正后的模型，'上线 AI 自动化功能'虽然期望收益较高，但其方差极大，主要源于'合规与声誉风险'这一新增维度。若发生小概率的合规黑天鹅事件，其负面效用将远超收益。相比之下，'继续优化现有产品'提供了确定的底线收益和极高的安全性。对于风险厌恶型（保守）决策者，现有优化是更优解；对于风险偏好型（激进）决策者，AI功能的高上限具有吸引力。建议采取混合策略：在小范围用户群中进行灰度测试（A/B实验），以低成本验证AI的合规性及实际转化效果，从而将'低概率高损失'风险转化为'可量化的小额试错成本'，而非直接全量上线。"
-            },
             "scores": {
-                "上线 AI 自动化功能": 62.5,
-                "继续优化现有产品": 68
+                "上线AI新功能/产品": 48,
+                "优化现有项目": 66
+            },
+            "recommendation": {
+                "analysis": "原仿真均值差异无统计显著性，且忽略左尾极端风险。经概率加权修正，\"优化现有项目\"以66.8分显著优于AI选项的48.5分。鉴于AI同质化及幻觉风险，建议放弃二元对立，采取\"战略性观望\"：优先执行现有业务优化以锁定现金流，同时小成本试点AI重构流程，而非全量押注高风险新品。"
             }
         },
         "simulate": {
             "optionResults": {
-                "上线 AI 自动化功能": {
-                    "p10": 61.2,
-                    "p50": 64.4,
-                    "p90": 69.1,
-                    "sigma": 3.1,
-                    "mean": 64.6
+                "上线AI新功能/产品": {
+                    "p10": 50.9,
+                    "p50": 51,
+                    "p90": 51.1,
+                    "sigma": 0.1,
+                    "mean": 51
                 },
-                "继续优化现有产品": {
-                    "p10": 65.6,
-                    "p50": 67,
-                    "p90": 71.1,
-                    "sigma": 2,
-                    "mean": 67.5
+                "优化现有项目": {
+                    "p10": 46.2,
+                    "p50": 46.2,
+                    "p90": 46.2,
+                    "sigma": 0,
+                    "mean": 46.2
                 }
             },
             "ranking": [
                 {
-                    "name": "继续优化现有产品",
-                    "mean": 67.5,
+                    "name": "上线AI新功能/产品",
+                    "mean": 51,
                     "rank": 1
                 },
                 {
-                    "name": "上线 AI 自动化功能",
-                    "mean": 64.6,
+                    "name": "优化现有项目",
+                    "mean": 46.2,
                     "rank": 2
                 }
             ]
         },
         "lastStep": "simulate",
         "nexus": {
-            "executive_summary": "尽管AI自动化功能具备高增长潜力，但鉴于其显著的合规风险及当前略低的综合评分，建议暂缓全量上线。首选策略为继续优化现有产品以稳固基本盘，同时通过小范围灰度测试验证AI可行性，以平衡风险与创新机遇。",
-            "recommendation": "推荐方案：继续优化现有产品（短期主导）+ AI功能小范围灰度测试（并行探索）。核心理由：现有产品路径得分更高（68 vs 62.5）且风险极低，能确保现金流稳定；而AI路径虽期望收益高，但存在导致品牌危机的“黑天鹅”风险，需通过低成本试错来降低不确定性，避免直接全量投入带来的潜在巨额损失。",
+            "executive_summary": "尽管蒙特卡洛均值显示AI选项略高，但经风险加权修正后，“优化现有项目”以66.8分显著优于AI选项的48.5分。建议采取“稳健为主、小步试错”策略，优先通过优化现有业务锁定现金流，同时以小成本试点AI技术，避免全量押注高风险新品。",
+            "recommendation": "推荐方案：优化现有项目。核心理由：在考虑AI落地的高失败率（70%）及幻觉风险后，优化现有项目的期望收益更稳定且风险可控，能有效巩固基本盘并规避严重的资源浪费。",
             "key_insights": [
-                "风险收益不对称：AI功能虽有望打破增长瓶颈，但合规事故导致的负面效用（品牌受损、罚款）远超其成功带来的边际收益，导致整体期望值被拉低。",
-                "确定性优于波动性：在风险偏好分布中，保守和均衡型占据主导（75%），使得稳健的现有产品优化路径在加权评估中胜出，符合大多数利益相关者的风险承受力。",
-                "机会成本警示：虽然选择保守路径安全，但长期面临竞品利用AI技术形成代差的风险，因此不能完全放弃AI探索，必须保留技术跟进的窗口。"
+                "风险调整后优势明显：虽然AI选项具备高增长潜力，但其70%的高失败概率导致经概率加权后的综合得分（48.5）远低于优化选项（66.8）。",
+                "数据信号存在矛盾：蒙特卡洛仿真均值显示AI选项排名靠前，但这忽略了左尾极端风险；决策应依据经过风险调整后的加权分数而非原始均值。",
+                "战略平衡点：完全放弃AI可能导致长期竞争力下降，但全量投入风险过高；最佳路径是在确保短期现金流稳定的前提下，进行低成本的AI技术验证。"
             ],
             "confidence_level": 72,
             "caveats": [
-                "路径概率总和为2.00，表明各分支概率计算可能存在归一化问题或独立性假设偏差，需重新校准概率模型以提高精确度。",
-                "蒙特卡洛标准差较低（2.5）显示结果稳定性尚可，但第一名与第二名分差仅5.5分，说明决策处于临界点，外部市场环境微小变化可能导致推荐反转。",
-                "合规风险的 categorical 分布中，极端风险（80分）概率仅为10%，若实际监管环境趋严，该概率可能被低估，需动态调整风险权重。"
+                "蒙特卡洛均值与加权结论存在方向性背离（AI均值更高但加权后更低），表明结果对风险参数极度敏感，需警惕模型假设偏差。",
+                "路径概率总和为4.0（每个Option内为1.0），符合逻辑自洽，但需注意‘低概率高回报’路径在实际执行中可能因黑天鹅事件而失效。",
+                "若企业风险偏好为‘激进’，AI选项的吸引力将大幅上升，当前建议主要基于‘均衡’或‘保守’偏好得出。"
             ]
         }
     },
     "monteCarloResult": {
         "optionResults": {
-            "上线 AI 自动化功能": {
-                "p10": 61.2,
-                "p50": 64.4,
-                "p90": 69.1,
-                "sigma": 3.1,
-                "mean": 64.6
+            "上线AI新功能/产品": {
+                "p10": 50.9,
+                "p50": 51,
+                "p90": 51.1,
+                "sigma": 0.1,
+                "mean": 51
             },
-            "继续优化现有产品": {
-                "p10": 65.6,
-                "p50": 67,
-                "p90": 71.1,
-                "sigma": 2,
-                "mean": 67.5
+            "优化现有项目": {
+                "p10": 46.2,
+                "p50": 46.2,
+                "p90": 46.2,
+                "sigma": 0,
+                "mean": 46.2
             }
         },
         "ranking": [
             {
-                "name": "继续优化现有产品",
-                "mean": 67.5,
+                "name": "上线AI新功能/产品",
+                "mean": 51,
                 "rank": 1
             },
             {
-                "name": "上线 AI 自动化功能",
-                "mean": 64.6,
+                "name": "优化现有项目",
+                "mean": 46.2,
                 "rank": 2
             }
         ]
     },
     "devilResult": null,
-    "pipelineId": "pipeline-1779035956832",
+    "pipelineId": "pipeline-1779184028282",
     "pipelineStatus": "completed",
     "pipelineCompletedSteps": [
         "framework",
